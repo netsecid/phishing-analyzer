@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phishing Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+
+    /* ── Input form ── */
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 0.6rem 0.9rem;
+      border-radius: 6px;
+      border: 1px solid #2d3748;
+      background: #1a202c;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-row input:focus { border-color: #4f86f7; }
+
+    .input-row button {
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      border: none;
+      background: #4f86f7;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .input-row button:hover:not(:disabled) { background: #3b6fd4; }
+    .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Status bar ── */
+    #status {
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+      min-height: 1.2em;
+      color: #94a3b8;
+    }
+
+    #status.error { color: #f87171; }
+
+    /* ── Result card ── */
+    .card {
+      background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .card-header {
+      padding: 0.75rem 1rem;
+      background: #2d3748;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .screenshot-wrap {
+      background: #000;
+      text-align: center;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    .screenshot-wrap img {
+      max-width: 100%;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.35rem 1rem;
+      padding: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .meta-label { color: #64748b; white-space: nowrap; }
+    .meta-value { color: #e2e8f0; word-break: break-all; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.1em 0.5em;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .status-2xx { background: #14532d; color: #86efac; }
+    .status-3xx { background: #1e3a5f; color: #93c5fd; }
+    .status-4xx { background: #451a03; color: #fbbf24; }
+    .status-5xx { background: #3b0000; color: #f87171; }
+
+    details { margin-top: 0.75rem; }
+    summary { cursor: pointer; color: #64748b; font-size: 0.8rem; user-select: none; }
+    summary:hover { color: #94a3b8; }
+
+    pre {
+      margin-top: 0.5rem;
+      background: #0f1117;
+      border-radius: 4px;
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      color: #a3e635;
+      line-height: 1.5;
+    }
+
+    /* ── History table ── */
+    #history h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 0.75rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      background: #2d3748;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #1e2533;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    tbody tr:hover { background: #1e2a3a; }
+
+    td {
+      padding: 0.55rem 0.75rem;
+      color: #e2e8f0;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    td.ts { color: #64748b; font-size: 0.78rem; white-space: nowrap; }
+
+    .hidden { display: none !important; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #4f86f7;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── AI analysis card ── */
+    .ai-card {
+      background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .ai-card-header {
+      padding: 0.75rem 1rem;
+      background: #2d3748;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .ai-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .ai-top-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .verdict-badge {
+      display: inline-block;
+      padding: 0.25em 0.75em;
+      border-radius: 5px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .verdict-phishing     { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+    .verdict-suspicious   { background: #431407; color: #fdba74; border: 1px solid #7c2d12; }
+    .verdict-legitimate   { background: #052e16; color: #86efac; border: 1px solid #14532d; }
+    .verdict-inconclusive { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+
+    .action-badge {
+      display: inline-block;
+      padding: 0.2em 0.6em;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .action-takedown { background: #450a0a; color: #fca5a5; }
+    .action-monitor  { background: #431407; color: #fdba74; }
+    .action-dismiss  { background: #052e16; color: #86efac; }
+
+    .confidence-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+
+    .confidence-bar {
+      flex: 1;
+      max-width: 120px;
+      height: 6px;
+      background: #2d3748;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: #4f86f7;
+      transition: width 0.4s;
+    }
+
+    .ai-brand { font-size: 0.85rem; color: #e2e8f0; }
+    .ai-brand span { color: #fbbf24; font-weight: 600; }
+
+    .ai-summary { font-size: 0.875rem; color: #cbd5e1; line-height: 1.55; }
+
+    .ai-indicators { padding-left: 1.1rem; margin: 0; }
+    .ai-indicators li { font-size: 0.82rem; color: #94a3b8; margin-bottom: 0.2rem; }
+
+    /* ── Takedown card ── */
+    .td-card {
+      background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .td-card-header {
+      padding: 0.75rem 1rem;
+      background: #2d3748;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .td-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+
+    .td-meta-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.3rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    .td-label { color: #64748b; white-space: nowrap; }
+    .td-value { color: #e2e8f0; word-break: break-all; }
+    .td-value a { color: #4f86f7; text-decoration: none; }
+    .td-value a:hover { text-decoration: underline; }
+
+    .td-copy-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .td-btn {
+      padding: 0.45rem 1rem;
+      border-radius: 5px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .td-btn:hover { background: #2d3f55; }
+    .td-btn.rerun { border-color: #4f86f7; color: #4f86f7; }
+    .td-btn.rerun:hover { background: #1e2f45; }
+
+    .td-email-body {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 4px;
+      color: #a3e635;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      padding: 0.75rem;
+      resize: vertical;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Phishing Analyzer</h1>
+  <p class="subtitle">Mobile browser emulation &middot; iPhone 14 &middot; Full-page screenshot</p>
+
+  <div class="input-row">
+    <input id="urlInput" type="url" placeholder="https://suspicious-site.example.com" />
+    <button id="submitBtn" onclick="submitUrl()">Analyze</button>
+  </div>
+
+  <div id="status"></div>
+
+  <!-- Result -->
+  <div id="result" class="hidden">
+    <!-- AI Analysis -->
+    <div id="aiCard" class="ai-card hidden">
+      <div class="ai-card-header">AI Analysis</div>
+      <div class="ai-body">
+        <div class="ai-top-row">
+          <span id="aiVerdict" class="verdict-badge"></span>
+          <span id="aiAction" class="action-badge"></span>
+          <div class="confidence-bar-wrap">
+            <div class="confidence-bar"><div id="aiConfFill" class="confidence-fill" style="width:0%"></div></div>
+            <span id="aiConfText"></span>
+          </div>
+        </div>
+        <div id="aiBrand" class="ai-brand hidden"></div>
+        <p id="aiSummary" class="ai-summary"></p>
+        <ul id="aiIndicators" class="ai-indicators"></ul>
+      </div>
+    </div>
+
+    <!-- Takedown Report -->
+    <div id="tdCard" class="td-card hidden">
+      <div class="td-card-header">
+        <span>Takedown Report</span>
+        <button id="tdRerunBtn" class="td-btn rerun" onclick="rerunTakedown()">Re-run Takedown Lookup</button>
+      </div>
+      <div class="td-body">
+        <div class="td-meta-grid">
+          <span class="td-label">Domain</span>        <span class="td-value" id="tdDomain"></span>
+          <span class="td-label">IP Address</span>    <span class="td-value" id="tdIp"></span>
+          <span class="td-label">Country</span>       <span class="td-value" id="tdCountry"></span>
+          <span class="td-label">Registrar</span>     <span class="td-value" id="tdRegistrar"></span>
+          <span class="td-label">Reg. Abuse</span>    <span class="td-value" id="tdRegAbuse"></span>
+          <span class="td-label">Hosting</span>       <span class="td-value" id="tdHosting"></span>
+          <span class="td-label">Host Abuse</span>    <span class="td-value" id="tdHostAbuse"></span>
+          <span class="td-label">Registered</span>    <span class="td-value" id="tdRegDate"></span>
+          <span class="td-label">Expires</span>       <span class="td-value" id="tdExpDate"></span>
+          <span class="td-label">Nameservers</span>   <span class="td-value" id="tdNs"></span>
+        </div>
+        <div class="td-copy-row">
+          <button class="td-btn" onclick="copyTd('subject')">Copy Subject</button>
+          <button class="td-btn" onclick="copyTd('body')">Copy Email Body</button>
+        </div>
+        <textarea id="tdEmailBody" class="td-email-body" rows="15" readonly></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Screenshot</div>
+      <div class="screenshot-wrap">
+        <img id="screenshot" src="" alt="Page screenshot" />
+      </div>
+      <div class="meta-grid">
+        <span class="meta-label">Input URL</span>   <span class="meta-value" id="mUrl"></span>
+        <span class="meta-label">Final URL</span>   <span class="meta-value" id="mFinal"></span>
+        <span class="meta-label">Title</span>       <span class="meta-value" id="mTitle"></span>
+        <span class="meta-label">HTTP Status</span> <span class="meta-value" id="mStatus"></span>
+        <span class="meta-label">Timestamp</span>   <span class="meta-value" id="mTs"></span>
+        <span class="meta-label" style="align-self:start">Headers</span>
+        <span class="meta-value">
+          <details><summary>Show response headers</summary>
+          <pre id="mHeaders"></pre></details>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div id="history" class="hidden">
+    <h2>Previous cases</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>URL</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Analyzed at</th>
+          </tr>
+        </thead>
+        <tbody id="caseRows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  function statusBadge(code) {
+    if (!code) return '—';
+    const cls = code < 300 ? 'status-2xx'
+              : code < 400 ? 'status-3xx'
+              : code < 500 ? 'status-4xx'
+              : 'status-5xx';
+    return `<span class="status-badge ${cls}">${code}</span>`;
+  }
+
+  function fmtTs(ts) {
+    if (!ts) return '—';
+    try { return new Date(ts).toLocaleString(); } catch { return ts; }
+  }
+
+  const VERDICT_CLASS = {
+    phishing:     'verdict-phishing',
+    suspicious:   'verdict-suspicious',
+    legitimate:   'verdict-legitimate',
+    inconclusive: 'verdict-inconclusive',
+  };
+
+  const ACTION_CLASS = {
+    takedown: 'action-takedown',
+    monitor:  'action-monitor',
+    dismiss:  'action-dismiss',
+  };
+
+  function showAi(c) {
+    const verdict = c.ai_verdict;
+    if (!verdict) { $('aiCard').classList.add('hidden'); return; }
+
+    const vEl = $('aiVerdict');
+    vEl.textContent = verdict;
+    vEl.className = 'verdict-badge ' + (VERDICT_CLASS[verdict] || 'verdict-inconclusive');
+
+    const aEl = $('aiAction');
+    const action = c.ai_recommended_action || '';
+    aEl.textContent = action;
+    aEl.className = 'action-badge ' + (ACTION_CLASS[action] || '');
+
+    const conf = c.ai_confidence ?? 0;
+    $('aiConfFill').style.width = conf + '%';
+    $('aiConfText').textContent = conf + '% confidence';
+
+    const brandEl = $('aiBrand');
+    if (c.ai_brand_impersonated) {
+      brandEl.innerHTML = 'Brand impersonated: <span>' + c.ai_brand_impersonated + '</span>';
+      brandEl.classList.remove('hidden');
+    } else {
+      brandEl.classList.add('hidden');
+    }
+
+    $('aiSummary').textContent = c.ai_summary || '';
+
+    const indicators = Array.isArray(c.ai_risk_indicators) ? c.ai_risk_indicators : [];
+    $('aiIndicators').innerHTML = indicators.map(i => `<li>${i}</li>`).join('');
+
+    $('aiCard').classList.remove('hidden');
+  }
+
+  let _currentCaseId = null;
+  let _tdSubject = '';
+
+  function showTakedown(td) {
+    if (!td) { $('tdCard').classList.add('hidden'); return; }
+
+    const mailto = e => e && e !== '[Unknown]' ? `<a href="mailto:${e}">${e}</a>` : (e || '—');
+
+    $('tdDomain').textContent    = td.domain        || '—';
+    $('tdIp').textContent        = td.ip_address     || '—';
+    $('tdCountry').textContent   = td.hosting_country || '—';
+    $('tdRegistrar').textContent = td.registrar_name  || '—';
+    $('tdRegAbuse').innerHTML    = mailto(td.registrar_abuse_email);
+    $('tdHosting').textContent   = td.hosting_org     || '—';
+    $('tdHostAbuse').innerHTML   = mailto(td.hosting_abuse_email);
+    $('tdRegDate').textContent   = td.rdap_registration_date || '—';
+    $('tdExpDate').textContent   = td.rdap_expiry_date       || '—';
+    $('tdNs').textContent        = (td.nameservers || []).join(', ') || '—';
+    $('tdEmailBody').value       = td.email_body || '';
+    _tdSubject = td.email_subject || '';
+
+    $('tdCard').classList.remove('hidden');
+  }
+
+  function copyTd(what) {
+    const text = what === 'subject' ? _tdSubject : $('tdEmailBody').value;
+    navigator.clipboard.writeText(text).catch(() => {
+      $('tdEmailBody').select();
+      document.execCommand('copy');
+    });
+  }
+
+  async function rerunTakedown() {
+    if (!_currentCaseId) return;
+    const btn = $('tdRerunBtn');
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    try {
+      const r = await fetch(`/api/cases/${_currentCaseId}/takedown`, { method: 'POST' });
+      if (r.ok) showTakedown(await r.json());
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Re-run Takedown Lookup';
+    }
+  }
+
+  function showCase(c) {
+    _currentCaseId = c.id || null;
+    $('screenshot').src = c.screenshot_url || '';
+    $('mUrl').textContent    = c.url        || '—';
+    $('mFinal').textContent  = c.final_url  || '—';
+    $('mTitle').textContent  = c.title      || '—';
+    $('mStatus').innerHTML   = statusBadge(c.status_code);
+    $('mTs').textContent     = fmtTs(c.timestamp);
+    $('mHeaders').textContent = JSON.stringify(c.raw_headers, null, 2);
+    showAi(c);
+    showTakedown(c.takedown_data || null);
+    $('result').classList.remove('hidden');
+    $('result').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function renderHistory(cases) {
+    if (!cases.length) return;
+    const tbody = $('caseRows');
+    tbody.innerHTML = cases.map(c => `
+      <tr onclick="loadCase(${c.id})">
+        <td>${c.id}</td>
+        <td title="${c.url}">${c.url}</td>
+        <td title="${c.title || ''}">${c.title || '—'}</td>
+        <td>${statusBadge(c.status_code)}</td>
+        <td class="ts">${fmtTs(c.timestamp)}</td>
+      </tr>`).join('');
+    $('history').classList.remove('hidden');
+  }
+
+  async function loadCase(id) {
+    const r = await fetch(`/api/cases/${id}`);
+    if (r.ok) showCase(await r.json());
+  }
+
+  async function loadHistory() {
+    const r = await fetch('/api/cases');
+    if (r.ok) renderHistory(await r.json());
+  }
+
+  async function submitUrl() {
+    const url = $('urlInput').value.trim();
+    if (!url) return;
+
+    const btn = $('submitBtn');
+    const status = $('status');
+    btn.disabled = true;
+    status.className = '';
+    status.innerHTML = '<span class="spinner"></span>Analyzing — this takes a few seconds…';
+
+    try {
+      const r = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await r.json();
+      if (!r.ok) {
+        status.textContent = `Error: ${data.detail || r.statusText}`;
+        status.className = 'error';
+        return;
+      }
+
+      status.textContent = 'Done.';
+      showCase(data);
+      loadHistory();
+    } catch (err) {
+      status.textContent = `Network error: ${err.message}`;
+      status.className = 'error';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitUrl();
+  });
+
+  loadHistory();
+</script>
+</body>
+</html>

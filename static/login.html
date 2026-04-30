@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phishing Analyzer — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .card {
+      background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.9rem;
+      border-radius: 6px;
+      border: 1px solid #2d3748;
+      background: #0f1117;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 1rem;
+    }
+
+    input[type="password"]:focus { border-color: #4f86f7; }
+
+    button {
+      width: 100%;
+      padding: 0.65rem 1.2rem;
+      border-radius: 6px;
+      border: none;
+      background: #4f86f7;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #3b6fd4; }
+
+    .error-msg {
+      display: none;
+      font-size: 0.85rem;
+      color: #f87171;
+      margin-bottom: 1rem;
+    }
+
+    .error-msg.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Phishing Analyzer</h1>
+    <p class="subtitle">Internal security tool</p>
+
+    <p class="error-msg" id="errorMsg">Incorrect password. Please try again.</p>
+
+    <form method="POST" action="/login">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autofocus autocomplete="current-password" />
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <script>
+    if (new URLSearchParams(window.location.search).get('error')) {
+      document.getElementById('errorMsg').classList.add('visible');
+    }
+  </script>
+</body>
+</html>
