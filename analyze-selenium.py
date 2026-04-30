@@ -7,6 +7,7 @@ Usage: python analyze.py <url>
 
 import argparse
 import json
+import shutil
 import sys
 import time
 from datetime import datetime, timezone
@@ -14,10 +15,11 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, Exception as SeleniumException
+from selenium.common.exceptions import TimeoutException
 
 SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
 SCREENSHOTS_DIR.mkdir(exist_ok=True)
@@ -52,10 +54,24 @@ def analyze(url: str) -> dict:
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--allow-insecure-localhost")
 
+    # Use system-installed chromium/chromedriver to avoid selenium-manager
+    # trying to download architecture-incompatible binaries
+    chrome_binary = (
+        shutil.which("chromium")
+        or shutil.which("chromium-browser")
+        or shutil.which("google-chrome")
+        or shutil.which("google-chrome-stable")
+    )
+    chromedriver_path = shutil.which("chromedriver")
+
+    if chrome_binary:
+        chrome_options.binary_location = chrome_binary
+
+    service = Service(executable_path=chromedriver_path) if chromedriver_path else Service()
+
     driver = None
     try:
-        # Launch Chromium instead of Chrome
-        driver = webdriver.Chrome(options=chrome_options)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         
         # Navigate to URL with timeout
         driver.set_page_load_timeout(30)
@@ -82,10 +98,6 @@ def analyze(url: str) -> dict:
             result["title"] = driver.title if driver else None
         except Exception:
             pass
-
-    except SeleniumException as exc:
-        result["error"] = str(exc)
-        result["final_url"] = driver.current_url if driver else None
 
     except Exception as exc:
         result["error"] = str(exc)
