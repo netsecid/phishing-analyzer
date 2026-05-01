@@ -1,105 +1,224 @@
 # Phishing Analyzer
 
-A web-based tool for investigating suspicious URLs. Captures full-page screenshots via a mobile-emulated headless browser, runs AI-powered phishing detection using Claude, and generates takedown reports with registrar/hosting intel.
+## Project Overview
 
-## Features
+**Phishing Analyzer** analyzes suspected phishing URLs using a headless browser (Playwright, iPhone 14 emulation) and Claude AI verdict. Includes RDAP-based takedown helper.
 
-- **Mobile-emulated screenshot capture** — iPhone 14 UA, 390×844 viewport, 3× device scale, SSL errors ignored
-- **AI phishing detection** — Claude Opus 4.7 vision analysis: verdict, confidence score, brand impersonation, risk indicators
-- **Takedown report generation** — RDAP/WHOIS registrar lookup, IP/ASN info, pre-filled abuse email templates
-- **Case history** — every analysis persisted in SQLite with full audit trail
-- **Session authentication** — signed cookie, 8-hour expiry, single shared password
+- **Stack:** Python 3.12+, FastAPI, Playwright (Chromium), SQLite, Anthropic Claude API
+- **Frontend:** Single-file vanilla HTML/CSS/JS (no framework)
 
-## Architecture
+## Requirements
 
-```
-FastAPI (main.py)
-  ├── analyze.py       — Playwright headless Chromium subprocess
-  ├── ai_analysis.py   — Claude API vision call (phishing verdict)
-  ├── takedown.py      — RDAP + ipinfo.io lookups, email template
-  └── database.py      — SQLite via sqlite3 (cases table)
-
-static/
-  ├── login.html       — Password login page
-  └── index.html       — Dashboard: analysis form, results, case history
-```
-
-## Setup
-
-### Prerequisites
-
-- Python 3.10+
+- Python 3.12+
+- Ubuntu 24.04 (or compatible Linux)
 - An Anthropic API key
+- A domain name (for HTTPS via Let's Encrypt)
 
-### Install
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ANTHROPIC_API_KEY` | Your Anthropic API key from console.anthropic.com |
+| `APP_PASSWORD` | Password users enter on the login page |
+| `SECRET_KEY` | Random string used to sign session cookies (never share this) |
+
+Generate `SECRET_KEY`:
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+## Local Development
 
 ```bash
+# Clone
+git clone https://github.com/netsecid/phishing-analyzer.git
+cd phishing-analyzer
+
+# Create venv
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-# Install Playwright's Chromium + system dependencies
+# Install Playwright browser
 playwright install chromium
-playwright install-deps chromium
+
+# Set environment variables (PowerShell)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:APP_PASSWORD = "yourpassword"
+$env:SECRET_KEY = "generate-with-command-above"
+
+# Run
+uvicorn main:app --port 8000 --reload
+# Visit http://localhost:8000
 ```
 
-### Environment variables
+## Production Deployment (Ubuntu 24.04 + Nginx + Let's Encrypt)
 
-Create a `.env` file (or export to your shell):
+### 1. System dependencies
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
+sudo apt update && sudo apt upgrade -y
+
+sudo apt install -y \
+  python3 python3-pip python3-venv \
+  git nginx \
+  certbot python3-certbot-nginx \
+  libpango-1.0-0 libcairo2
+```
+
+> **Note:** Do NOT run `playwright install-deps` on Ubuntu 24.04 — it fails due to
+> renamed packages (`libasound2`, `libicu70`, etc. no longer exist).
+> The two packages above (`libpango-1.0-0 libcairo2`) are sufficient.
+
+### 2. Clone and install
+
+```bash
+cd /opt
+sudo git clone https://github.com/netsecid/phishing-analyzer.git
+sudo chown -R ubuntu:ubuntu /opt/phishing-analyzer
+cd /opt/phishing-analyzer
+
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+deactivate
+```
+
+### 3. Environment variables
+
+```bash
+nano /opt/phishing-analyzer/.env
+```
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
 APP_PASSWORD=your-login-password
-SECRET_KEY=a-random-secret-for-signing-sessions
+SECRET_KEY=your-generated-secret-key
+```
+```bash
+chmod 600 /opt/phishing-analyzer/.env
 ```
 
-### Run
+### 4. Systemd service
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000
+sudo nano /etc/systemd/system/phishing-analyzer.service
+```
+```ini
+[Unit]
+Description=Phishing Analyzer FastAPI
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/phishing-analyzer
+EnvironmentFile=/opt/phishing-analyzer/.env
+ExecStart=/opt/phishing-analyzer/venv/bin/uvicorn main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 2
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable phishing-analyzer
+sudo systemctl start phishing-analyzer
 ```
 
-Then open `http://localhost:8000` in your browser.
-
-## Usage
-
-1. Log in with `APP_PASSWORD`.
-2. Paste a suspicious URL and click **Analyze**.
-3. The tool will:
-   - Launch a headless Chromium browser (iPhone 14 emulation) and capture a full-page screenshot
-   - Send the screenshot to Claude for phishing analysis
-   - If verdict is `phishing` or `suspicious`, automatically look up registrar and hosting info and generate an abuse report email
-4. Results display the AI verdict (with confidence bar and risk indicators), the screenshot, HTTP metadata, and takedown info.
-5. Use the **Copy** buttons to copy the abuse email subject/body to your clipboard.
-6. All cases are saved and browsable in the history table at the bottom.
-
-## AI Verdict Categories
-
-| Verdict | Meaning |
-|---|---|
-| `phishing` | High-confidence malicious page |
-| `suspicious` | Potentially malicious, needs review |
-| `legitimate` | No phishing indicators found |
-| `inconclusive` | Cannot determine (page blocked, CAPTCHA, etc.) |
-
-Recommended actions: `takedown`, `monitor`, or `dismiss`.
-
-## `analyze.py` CLI (standalone)
-
-The capture script can be run directly without the web server:
+### 5. Nginx
 
 ```bash
-# Human-readable output
-python analyze.py https://suspicious-site.example.com
+sudo nano /etc/nginx/sites-available/phishing-analyzer
+```
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
 
-# JSON output (for scripting)
-python analyze.py https://suspicious-site.example.com --json
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+    }
+
+    location /static/ {
+        alias /opt/phishing-analyzer/static/;
+        expires 30d;
+    }
+}
+```
+```bash
+sudo ln -sf /etc/nginx/sites-available/phishing-analyzer \
+    /etc/nginx/sites-enabled/phishing-analyzer
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl restart nginx
+sudo systemctl enable nginx
 ```
 
-Output: full-page PNG in `screenshots/`, plus page title, final URL after redirects, HTTP status, and response headers.
+### 6. HTTPS with Let's Encrypt
 
-## Notes
+```bash
+sudo certbot --nginx -d your-domain.com
+# When prompted, choose option 2 (Redirect HTTP to HTTPS)
+```
 
-- SSL certificate errors are intentionally ignored — phishing pages often use self-signed or expired certs
-- The Playwright subprocess has a 90-second hard timeout; screenshots are still returned on soft network-idle timeout
-- Claude API calls use prompt caching (`cache_control: ephemeral`) on the system prompt
-- RDAP lookups go through `rdap.org`; IP info through `ipinfo.io` (no API key required for basic usage)
-- The database auto-migrates its schema on first startup
+SSL auto-renews via systemd timer — no manual action needed.
+
+### 7. Verify
+
+```bash
+curl -I https://your-domain.com/
+# Expect: HTTP/2 200 or redirect to /login
+
+sudo systemctl status phishing-analyzer
+# Expect: active (running)
+```
+
+## Updating the App
+
+```bash
+cd /opt/phishing-analyzer
+git pull
+sudo systemctl restart phishing-analyzer
+```
+
+## Useful Commands
+
+```bash
+# Live app logs
+sudo journalctl -u phishing-analyzer -f
+
+# Nginx error log
+sudo tail -f /var/log/nginx/error.log
+
+# Restart app
+sudo systemctl restart phishing-analyzer
+
+# Check SSL cert expiry
+sudo certbot certificates
+```
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| 502 Bad Gateway | App not running | `sudo systemctl restart phishing-analyzer` |
+| Login not working | Missing `python-multipart` | `pip install python-multipart` |
+| Session cookie errors | Missing `itsdangerous` | `pip install itsdangerous` |
+| Playwright crashes | Missing system libs | `sudo apt install libpango-1.0-0 libcairo2` |
+| Certbot fails | DNS not resolving yet | Wait for DNS propagation and retry |
+| Screenshot dir error | Wrong permissions | `chown ubuntu:ubuntu /opt/phishing-analyzer/screenshots` |
