@@ -518,7 +518,11 @@
 
     const brandEl = $('aiBrand');
     if (c.ai_brand_impersonated) {
-      brandEl.innerHTML = 'Brand impersonated: <span>' + c.ai_brand_impersonated + '</span>';
+      brandEl.textContent = '';
+      brandEl.append('Brand impersonated: ');
+      const brandSpan = document.createElement('span');
+      brandSpan.textContent = c.ai_brand_impersonated;
+      brandEl.appendChild(brandSpan);
       brandEl.classList.remove('hidden');
     } else {
       brandEl.classList.add('hidden');
@@ -527,7 +531,13 @@
     $('aiSummary').textContent = c.ai_summary || '';
 
     const indicators = Array.isArray(c.ai_risk_indicators) ? c.ai_risk_indicators : [];
-    $('aiIndicators').innerHTML = indicators.map(i => `<li>${i}</li>`).join('');
+    const indicatorList = $('aiIndicators');
+    indicatorList.innerHTML = '';
+    indicators.forEach(i => {
+      const li = document.createElement('li');
+      li.textContent = i;
+      indicatorList.appendChild(li);
+    });
 
     $('aiCard').classList.remove('hidden');
   }
@@ -538,15 +548,22 @@
   function showTakedown(td) {
     if (!td) { $('tdCard').classList.add('hidden'); return; }
 
-    const mailto = e => e && e !== '[Unknown]' ? `<a href="mailto:${e}">${e}</a>` : (e || '—');
+    function setMailto(el, e) {
+      el.textContent = '';
+      if (!e || e === '[Unknown]') { el.textContent = e || '—'; return; }
+      const a = document.createElement('a');
+      a.href = 'mailto:' + e;
+      a.textContent = e;
+      el.appendChild(a);
+    }
 
     $('tdDomain').textContent    = td.domain        || '—';
     $('tdIp').textContent        = td.ip_address     || '—';
     $('tdCountry').textContent   = td.hosting_country || '—';
     $('tdRegistrar').textContent = td.registrar_name  || '—';
-    $('tdRegAbuse').innerHTML    = mailto(td.registrar_abuse_email);
+    setMailto($('tdRegAbuse'), td.registrar_abuse_email);
     $('tdHosting').textContent   = td.hosting_org     || '—';
-    $('tdHostAbuse').innerHTML   = mailto(td.hosting_abuse_email);
+    setMailto($('tdHostAbuse'), td.hosting_abuse_email);
     $('tdRegDate').textContent   = td.rdap_registration_date || '—';
     $('tdExpDate').textContent   = td.rdap_expiry_date       || '—';
     $('tdNs').textContent        = (td.nameservers || []).join(', ') || '—';
@@ -596,14 +613,27 @@
   function renderHistory(cases) {
     if (!cases.length) return;
     const tbody = $('caseRows');
-    tbody.innerHTML = cases.map(c => `
-      <tr onclick="loadCase(${c.id})">
-        <td>${c.id}</td>
-        <td title="${c.url}">${c.url}</td>
-        <td title="${c.title || ''}">${c.title || '—'}</td>
-        <td>${statusBadge(c.status_code)}</td>
-        <td class="ts">${fmtTs(c.timestamp)}</td>
-      </tr>`).join('');
+    tbody.innerHTML = '';
+    cases.forEach(c => {
+      const tr = tbody.insertRow();
+      tr.onclick = () => loadCase(c.id);
+
+      tr.insertCell().textContent = c.id;
+
+      const tdUrl = tr.insertCell();
+      tdUrl.title = c.url || '';
+      tdUrl.textContent = c.url || '—';
+
+      const tdTitle = tr.insertCell();
+      tdTitle.title = c.title || '';
+      tdTitle.textContent = c.title || '—';
+
+      tr.insertCell().innerHTML = statusBadge(c.status_code); // status_code is a server integer
+
+      const tdTs = tr.insertCell();
+      tdTs.className = 'ts';
+      tdTs.textContent = fmtTs(c.timestamp);
+    });
     $('history').classList.remove('hidden');
   }
 

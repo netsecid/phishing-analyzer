@@ -186,12 +186,16 @@ async def regenerate_takedown(case_id: int):
     return td
 
 
+@app.get("/screenshots/{filename}", dependencies=[Depends(_require_auth)])
+async def serve_screenshot(filename: str):
+    safe = Path(filename).name
+    path = BASE_DIR / "screenshots" / safe
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(path)
+
+
 # Static mounts must come after route definitions
-app.mount(
-    "/screenshots",
-    StaticFiles(directory=str(BASE_DIR / "screenshots")),
-    name="screenshots",
-)
 app.mount(
     "/",
     StaticFiles(directory=str(BASE_DIR / "static"), html=True),
