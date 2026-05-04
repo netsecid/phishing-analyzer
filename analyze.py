@@ -45,7 +45,10 @@ def analyze(url: str) -> dict:
     }
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
         context = browser.new_context(
             **IPHONE_14,
             ignore_https_errors=True,
