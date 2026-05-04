@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(xargs grep *)",
+      "Bash(awk '{print $9, \"\\(\" $5 \"\\)\"}')",
+      "Bash(xargs ls *)",
+      "Bash(python -c \"import ast, sys; files = ['main.py','database.py','ai_analysis.py','analyze.py','intel.py']; [print\\(f'{f}: OK'\\) or None for f in files if ast.parse\\(open\\(f\\).read\\(\\)\\)]\")"
+    ]
+  }
+}

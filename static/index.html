@@ -1,692 +1,1172 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phishing Analyzer</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phishing Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── CSS Variables ─────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --bg: #0d1117; --bg2: #010409;
+  --surface: #161b22; --surface2: #1c2128; --surface3: #21262d;
+  --border: #30363d; --border2: #21262d;
+  --text: #e6edf3; --text2: #c9d1d9; --muted: #8b949e;
+  --accent: #2f81f7; --accent-dim: rgba(47,129,247,0.15);
+  --green: #3fb950; --green-dim: rgba(63,185,80,0.15);
+  --red: #f85149; --red-dim: rgba(248,81,73,0.15);
+  --orange: #d29922; --orange-dim: rgba(210,153,34,0.15);
+  --yellow: #e3b341; --yellow-dim: rgba(227,179,65,0.15);
+  --purple: #bc8cff; --purple-dim: rgba(188,140,255,0.15);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+}
+:root[data-theme="light"] {
+  --bg: #f6f8fa; --bg2: #eaeef2;
+  --surface: #ffffff; --surface2: #f6f8fa; --surface3: #eaeef2;
+  --border: #d0d7de; --border2: #e8ecf0;
+  --text: #1f2328; --text2: #24292f; --muted: #656d76;
+  --accent: #0969da; --accent-dim: rgba(9,105,218,0.1);
+  --green: #1a7f37; --green-dim: rgba(26,127,55,0.1);
+  --red: #cf222e; --red-dim: rgba(207,34,46,0.1);
+  --orange: #9a6700; --orange-dim: rgba(154,103,0,0.1);
+  --yellow: #9a6700; --yellow-dim: rgba(154,103,0,0.1);
+  --purple: #8250df; --purple-dim: rgba(130,80,223,0.1);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
 
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      padding: 2rem 1rem;
-    }
+/* ── Reset & Base ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  font-size: 14px; line-height: 1.5;
+  transition: background 0.2s, color 0.2s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { cursor: pointer; font-family: inherit; }
+code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
 
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #f8fafc;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.25rem;
-    }
+/* ── Layout ────────────────────────────────────────────────────── */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
 
-    .subtitle {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin-bottom: 2rem;
-    }
+/* ── Topbar ────────────────────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 1.25rem; height: 52px;
+  display: flex; align-items: center; gap: 0.75rem;
+  backdrop-filter: blur(12px);
+}
+.topbar-logo {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-weight: 600; font-size: 0.9rem; letter-spacing: -0.01em;
+  color: var(--text); cursor: pointer; flex-shrink: 0;
+}
+.topbar-logo .ico {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, #f85149, #ff7b72);
+  border-radius: 7px; display: flex; align-items: center;
+  justify-content: center; font-size: 14px;
+}
+.topbar-search {
+  flex: 1; max-width: 420px; position: relative;
+}
+.topbar-search input {
+  width: 100%; padding: 0.4rem 0.75rem 0.4rem 2.1rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 0.82rem;
+  font-family: inherit; outline: none; transition: all 0.15s;
+}
+.topbar-search input:focus { border-color: var(--accent); background: var(--surface); }
+.topbar-search .search-icon {
+  position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 0.85rem; pointer-events: none;
+}
+.topbar-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.icon-btn {
+  background: none; border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.35rem 0.55rem;
+  color: var(--muted); font-size: 0.9rem; transition: all 0.15s;
+  line-height: 1; display: flex; align-items: center; gap: 0.35rem;
+}
+.icon-btn:hover { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+.icon-btn .label { font-size: 0.78rem; font-weight: 500; }
+.btn-primary {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; padding: 0.4rem 0.85rem;
+  font-size: 0.82rem; font-weight: 500; transition: opacity 0.15s;
+  display: flex; align-items: center; gap: 0.35rem;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .container { max-width: 860px; margin: 0 auto; }
+/* ── Main content ──────────────────────────────────────────────── */
+.main { flex: 1; padding: 1.5rem 1.25rem; max-width: 1280px; margin: 0 auto; width: 100%; }
 
-    /* ── Input form ── */
-    .input-row {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 2rem;
-    }
+/* ── Views ─────────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
 
-    .input-row input {
-      flex: 1;
-      padding: 0.6rem 0.9rem;
-      border-radius: 6px;
-      border: 1px solid #2d3748;
-      background: #1a202c;
-      color: #e2e8f0;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.15s;
-    }
+/* ── Stats row ─────────────────────────────────────────────────── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem; margin-bottom: 1.25rem;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+.stat-card .label { font-size: 0.75rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-card .value { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; }
+.stat-card.total .value { color: var(--accent); }
+.stat-card.phishing .value { color: var(--red); }
+.stat-card.suspicious .value { color: var(--orange); }
+.stat-card.legitimate .value { color: var(--green); }
+.stat-card.inconclusive .value { color: var(--muted); }
 
-    .input-row input:focus { border-color: #4f86f7; }
+/* ── Scan form ─────────────────────────────────────────────────── */
+.scan-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
+}
+.scan-row { display: flex; gap: 0.5rem; align-items: center; }
+.scan-input {
+  flex: 1; padding: 0.55rem 0.75rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 0.88rem;
+  font-family: inherit; outline: none; transition: all 0.15s;
+}
+.scan-input:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-dim); }
+.btn-scan {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; padding: 0.55rem 1.1rem;
+  font-size: 0.88rem; font-weight: 600; font-family: inherit;
+  transition: opacity 0.15s; white-space: nowrap;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.btn-scan:hover { opacity: 0.88; }
+.btn-scan:disabled { opacity: 0.5; cursor: not-allowed; }
+.scan-status { margin-top: 0.6rem; font-size: 0.8rem; color: var(--muted); display: none; }
+.scan-status.visible { display: block; }
+.progress-bar {
+  height: 2px; background: var(--border2); border-radius: 1px;
+  margin-top: 0.4rem; overflow: hidden;
+}
+.progress-bar .fill {
+  height: 100%; width: 0%; background: var(--accent);
+  border-radius: 1px; transition: width 0.3s ease;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); width: 40%; }
+  100% { transform: translateX(350%); width: 40%; }
+}
+.dup-warning {
+  display: none; margin-top: 0.6rem;
+  background: var(--yellow-dim); border: 1px solid var(--yellow);
+  border-radius: 8px; padding: 0.55rem 0.75rem;
+  font-size: 0.8rem; color: var(--yellow);
+}
+.dup-warning.visible { display: block; }
+.dup-warning a { color: var(--yellow); font-weight: 500; }
 
-    .input-row button {
-      padding: 0.6rem 1.2rem;
-      border-radius: 6px;
-      border: none;
-      background: #4f86f7;
-      color: #fff;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-      white-space: nowrap;
-    }
+/* ── Cases table section ───────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.section-title { font-size: 0.9rem; font-weight: 600; }
+.section-meta { font-size: 0.78rem; color: var(--muted); }
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 0.6rem 0.9rem; text-align: left; font-size: 0.72rem;
+  font-weight: 600; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.04em; border-bottom: 1px solid var(--border);
+  background: var(--surface2); white-space: nowrap;
+}
+tbody tr {
+  border-bottom: 1px solid var(--border2);
+  cursor: pointer; transition: background 0.1s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 0.65rem 0.9rem; font-size: 0.82rem; }
+.td-url { max-width: 280px; }
+.td-url .domain { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.td-url .path { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.td-time { color: var(--muted); white-space: nowrap; }
+.empty-state {
+  text-align: center; padding: 3rem 1rem;
+  color: var(--muted); font-size: 0.85rem;
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
 
-    .input-row button:hover:not(:disabled) { background: #3b6fd4; }
-    .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ── Verdict badge ─────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.2rem 0.55rem; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.badge.phishing { background: var(--red-dim); color: var(--red); }
+.badge.suspicious { background: var(--orange-dim); color: var(--orange); }
+.badge.legitimate { background: var(--green-dim); color: var(--green); }
+.badge.inconclusive { background: var(--surface3); color: var(--muted); }
+.badge.info { background: var(--accent-dim); color: var(--accent); }
+.badge.dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-    /* ── Status bar ── */
-    #status {
-      font-size: 0.85rem;
-      margin-bottom: 1.5rem;
-      min-height: 1.2em;
-      color: #94a3b8;
-    }
+/* ── Status badge ──────────────────────────────────────────────── */
+.status-badge {
+  display: inline-block; padding: 0.15rem 0.45rem;
+  border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+.status-2 { background: var(--green-dim); color: var(--green); }
+.status-3 { background: var(--accent-dim); color: var(--accent); }
+.status-4 { background: var(--yellow-dim); color: var(--yellow); }
+.status-5 { background: var(--red-dim); color: var(--red); }
+.status-0 { background: var(--surface3); color: var(--muted); }
 
-    #status.error { color: #f87171; }
+/* ── Confidence bar ────────────────────────────────────────────── */
+.conf-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem;
+}
+.conf-bar .track {
+  flex: 1; height: 4px; background: var(--surface3);
+  border-radius: 2px; overflow: hidden; max-width: 80px;
+}
+.conf-bar .fill { height: 100%; border-radius: 2px; }
+.conf-bar.high .fill { background: var(--red); }
+.conf-bar.med .fill { background: var(--orange); }
+.conf-bar.low .fill { background: var(--muted); }
 
-    /* ── Result card ── */
-    .card {
-      background: #1a202c;
-      border: 1px solid #2d3748;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 2rem;
-    }
+/* ── Detail view ───────────────────────────────────────────────── */
+.detail-header {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.detail-header .back-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.45rem 0.75rem; color: var(--muted);
+  font-size: 0.82rem; font-weight: 500; transition: all 0.15s;
+  display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0;
+}
+.detail-header .back-btn:hover { color: var(--text); border-color: var(--accent); }
+.detail-meta { flex: 1; min-width: 0; }
+.detail-meta .url {
+  font-size: 0.85rem; color: var(--muted); word-break: break-all;
+  margin-bottom: 0.35rem;
+}
+.detail-meta h2 {
+  font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.detail-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem; }
 
-    .card-header {
-      padding: 0.75rem 1rem;
-      background: #2d3748;
-      font-size: 0.8rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+/* ── Grid layout ───────────────────────────────────────────────── */
+.detail-grid {
+  display: grid; grid-template-columns: 1fr 340px;
+  gap: 1rem; align-items: start;
+}
+@media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
 
-    .screenshot-wrap {
-      background: #000;
-      text-align: center;
-      border-bottom: 1px solid #2d3748;
-    }
+/* ── Card ──────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.card-header {
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+.card-body { padding: 1rem; }
+.card-actions { display: flex; gap: 0.4rem; }
 
-    .screenshot-wrap img {
-      max-width: 100%;
-      display: block;
-      margin: 0 auto;
-    }
+/* ── Tabs ──────────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface); overflow-x: auto;
+  padding: 0 1rem;
+}
+.tab {
+  padding: 0.6rem 0.9rem; font-size: 0.82rem; font-weight: 500;
+  color: var(--muted); border: none; background: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab-content { display: none; padding: 1rem; }
+.tab-content.active { display: block; }
 
-    .meta-grid {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 0.35rem 1rem;
-      padding: 1rem;
-      font-size: 0.875rem;
-    }
+/* ── Info grid ─────────────────────────────────────────────────── */
+.info-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem;
+}
+.info-row { display: flex; flex-direction: column; gap: 0.15rem; }
+.info-row.full { grid-column: 1 / -1; }
+.info-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+.info-value { font-size: 0.82rem; word-break: break-all; }
+.info-value.mono { font-size: 0.78rem; }
 
-    .meta-label { color: #64748b; white-space: nowrap; }
-    .meta-value { color: #e2e8f0; word-break: break-all; }
+/* ── Risk indicators ───────────────────────────────────────────── */
+.indicators { display: flex; flex-direction: column; gap: 0.35rem; }
+.indicator {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  font-size: 0.8rem; padding: 0.4rem 0.6rem;
+  background: var(--red-dim); border-radius: 6px; color: var(--text2);
+}
+.indicator .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); flex-shrink: 0; margin-top: 0.35rem; }
 
-    .status-badge {
-      display: inline-block;
-      padding: 0.1em 0.5em;
-      border-radius: 4px;
-      font-weight: 700;
-      font-size: 0.8rem;
-    }
+/* ── Screenshot ────────────────────────────────────────────────── */
+.screenshot-wrap {
+  border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+  background: var(--surface3);
+}
+.screenshot-wrap img { width: 100%; display: block; }
 
-    .status-2xx { background: #14532d; color: #86efac; }
-    .status-3xx { background: #1e3a5f; color: #93c5fd; }
-    .status-4xx { background: #451a03; color: #fbbf24; }
-    .status-5xx { background: #3b0000; color: #f87171; }
+/* ── Code/pre block ────────────────────────────────────────────── */
+.code-block {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.75rem; overflow: auto;
+  max-height: 400px; font-size: 0.75rem; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-all; color: var(--text2);
+}
 
-    details { margin-top: 0.75rem; }
-    summary { cursor: pointer; color: #64748b; font-size: 0.8rem; user-select: none; }
-    summary:hover { color: #94a3b8; }
+/* ── Takedown ──────────────────────────────────────────────────── */
+.takedown-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;
+}
+.takedown-field { display: flex; flex-direction: column; gap: 0.2rem; }
+.takedown-field label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+.takedown-field span {
+  font-size: 0.8rem; color: var(--text);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.3rem 0.5rem; word-break: break-all;
+}
+.copy-row { display: flex; gap: 0.4rem; align-items: flex-start; }
+.copy-row .field-wrap { flex: 1; }
+.copy-row textarea, .copy-row input[type="text"] {
+  width: 100%; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 0.5rem 0.75rem;
+  resize: vertical; outline: none; transition: border-color 0.15s;
+}
+.copy-row textarea:focus, .copy-row input[type="text"]:focus { border-color: var(--accent); }
+.btn-copy {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.4rem 0.6rem; font-size: 0.78rem;
+  color: var(--muted); transition: all 0.15s; white-space: nowrap;
+}
+.btn-copy:hover { color: var(--text); border-color: var(--accent); }
+.btn-copy.copied { color: var(--green); border-color: var(--green); }
+.btn-sm {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.78rem;
+  color: var(--muted); transition: all 0.15s;
+}
+.btn-sm:hover { color: var(--text); border-color: var(--accent); }
 
-    pre {
-      margin-top: 0.5rem;
-      background: #0f1117;
-      border-radius: 4px;
-      padding: 0.75rem;
-      font-size: 0.75rem;
-      overflow-x: auto;
-      color: #a3e635;
-      line-height: 1.5;
-    }
+/* ── Intel ─────────────────────────────────────────────────────── */
+.intel-source {
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; margin-bottom: 0.75rem;
+}
+.intel-source-header {
+  padding: 0.6rem 0.9rem;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.intel-source-title { font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+.intel-source-body { padding: 0.75rem; }
+.intel-key-val { display: flex; gap: 0.5rem; margin-bottom: 0.3rem; font-size: 0.8rem; }
+.intel-key { color: var(--muted); flex-shrink: 0; min-width: 100px; }
+.intel-val { color: var(--text); word-break: break-all; }
+.intel-error { color: var(--red); font-size: 0.78rem; }
+.intel-not-configured { color: var(--muted); font-size: 0.78rem; font-style: italic; }
+.vt-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem; margin: 0.5rem 0;
+}
+.vt-stat {
+  text-align: center; padding: 0.5rem;
+  background: var(--surface2); border-radius: 6px;
+}
+.vt-stat .n { font-size: 1.2rem; font-weight: 700; }
+.vt-stat .l { font-size: 0.68rem; color: var(--muted); }
+.vt-stat.mal .n { color: var(--red); }
+.vt-stat.sus .n { color: var(--orange); }
+.vt-stat.harm .n { color: var(--green); }
+.vt-stat.un .n { color: var(--muted); }
 
-    /* ── History table ── */
-    #history h2 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #94a3b8;
-      margin-bottom: 0.75rem;
-    }
+/* ── Pivot suggestions ─────────────────────────────────────────── */
+.pivot-card {
+  border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem;
+  margin-bottom: 0.65rem; transition: border-color 0.15s;
+}
+.pivot-card:hover { border-color: var(--accent); }
+.pivot-cat { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 600; margin-bottom: 0.2rem; }
+.pivot-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+.pivot-desc { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; }
+.pivot-links { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.pivot-link {
+  font-size: 0.72rem; padding: 0.2rem 0.5rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--accent); transition: all 0.15s;
+}
+.pivot-link:hover { background: var(--accent-dim); border-color: var(--accent); text-decoration: none; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
+/* ── Spinner ───────────────────────────────────────────────────── */
+.spinner {
+  width: 14px; height: 14px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.7s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-    thead th {
-      text-align: left;
-      padding: 0.5rem 0.75rem;
-      background: #2d3748;
-      color: #64748b;
-      font-weight: 600;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+/* ── Toast ─────────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  display: flex; flex-direction: column; gap: 0.5rem; z-index: 9999;
+}
+.toast {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.65rem 1rem; font-size: 0.82rem;
+  box-shadow: var(--shadow); animation: slideIn 0.2s ease;
+  display: flex; align-items: center; gap: 0.5rem;
+  max-width: 320px;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--accent); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
 
-    tbody tr {
-      border-bottom: 1px solid #1e2533;
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-
-    tbody tr:hover { background: #1e2a3a; }
-
-    td {
-      padding: 0.55rem 0.75rem;
-      color: #e2e8f0;
-      max-width: 260px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    td.ts { color: #64748b; font-size: 0.78rem; white-space: nowrap; }
-
-    .hidden { display: none !important; }
-
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid #4f86f7;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.4rem;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── AI analysis card ── */
-    .ai-card {
-      background: #1a202c;
-      border: 1px solid #2d3748;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .ai-card-header {
-      padding: 0.75rem 1rem;
-      background: #2d3748;
-      font-size: 0.8rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .ai-body {
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .ai-top-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .verdict-badge {
-      display: inline-block;
-      padding: 0.25em 0.75em;
-      border-radius: 5px;
-      font-weight: 700;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .verdict-phishing     { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
-    .verdict-suspicious   { background: #431407; color: #fdba74; border: 1px solid #7c2d12; }
-    .verdict-legitimate   { background: #052e16; color: #86efac; border: 1px solid #14532d; }
-    .verdict-inconclusive { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
-
-    .action-badge {
-      display: inline-block;
-      padding: 0.2em 0.6em;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .action-takedown { background: #450a0a; color: #fca5a5; }
-    .action-monitor  { background: #431407; color: #fdba74; }
-    .action-dismiss  { background: #052e16; color: #86efac; }
-
-    .confidence-bar-wrap {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.82rem;
-      color: #94a3b8;
-    }
-
-    .confidence-bar {
-      flex: 1;
-      max-width: 120px;
-      height: 6px;
-      background: #2d3748;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .confidence-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: #4f86f7;
-      transition: width 0.4s;
-    }
-
-    .ai-brand { font-size: 0.85rem; color: #e2e8f0; }
-    .ai-brand span { color: #fbbf24; font-weight: 600; }
-
-    .ai-summary { font-size: 0.875rem; color: #cbd5e1; line-height: 1.55; }
-
-    .ai-indicators { padding-left: 1.1rem; margin: 0; }
-    .ai-indicators li { font-size: 0.82rem; color: #94a3b8; margin-bottom: 0.2rem; }
-
-    /* ── Takedown card ── */
-    .td-card {
-      background: #1a202c;
-      border: 1px solid #2d3748;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .td-card-header {
-      padding: 0.75rem 1rem;
-      background: #2d3748;
-      font-size: 0.8rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .td-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
-
-    .td-meta-grid {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 0.3rem 1rem;
-      font-size: 0.85rem;
-    }
-
-    .td-label { color: #64748b; white-space: nowrap; }
-    .td-value { color: #e2e8f0; word-break: break-all; }
-    .td-value a { color: #4f86f7; text-decoration: none; }
-    .td-value a:hover { text-decoration: underline; }
-
-    .td-copy-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-    .td-btn {
-      padding: 0.45rem 1rem;
-      border-radius: 5px;
-      border: 1px solid #334155;
-      background: #1e293b;
-      color: #e2e8f0;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .td-btn:hover { background: #2d3f55; }
-    .td-btn.rerun { border-color: #4f86f7; color: #4f86f7; }
-    .td-btn.rerun:hover { background: #1e2f45; }
-
-    .td-email-body {
-      width: 100%;
-      background: #0f1117;
-      border: 1px solid #2d3748;
-      border-radius: 4px;
-      color: #a3e635;
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 0.78rem;
-      line-height: 1.5;
-      padding: 0.75rem;
-      resize: vertical;
-      outline: none;
-    }
-  </style>
+/* ── Misc ──────────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--border); margin: 0.75rem 0; }
+.text-muted { color: var(--muted); }
+.text-sm { font-size: 0.78rem; }
+.mt-1 { margin-top: 0.5rem; }
+.gap-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.urlscan-thumb { width: 100%; border-radius: 6px; border: 1px solid var(--border); margin-top: 0.4rem; }
+.tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface3); color: var(--muted); }
+</style>
 </head>
 <body>
-<div class="container">
-  <h1>Phishing Analyzer</h1>
-  <p class="subtitle">Mobile browser emulation &middot; iPhone 14 &middot; Full-page screenshot</p>
-
-  <div class="input-row">
-    <input id="urlInput" type="url" placeholder="https://suspicious-site.example.com" />
-    <button id="submitBtn" onclick="submitUrl()">Analyze</button>
+<div class="app">
+<!-- ── Topbar ── -->
+<header class="topbar">
+  <div class="topbar-logo" onclick="showHome()">
+    <div class="ico">🎣</div>
+    <span>Phishing Analyzer</span>
   </div>
-
-  <div id="status"></div>
-
-  <!-- Result -->
-  <div id="result" class="hidden">
-    <!-- AI Analysis -->
-    <div id="aiCard" class="ai-card hidden">
-      <div class="ai-card-header">AI Analysis</div>
-      <div class="ai-body">
-        <div class="ai-top-row">
-          <span id="aiVerdict" class="verdict-badge"></span>
-          <span id="aiAction" class="action-badge"></span>
-          <div class="confidence-bar-wrap">
-            <div class="confidence-bar"><div id="aiConfFill" class="confidence-fill" style="width:0%"></div></div>
-            <span id="aiConfText"></span>
-          </div>
-        </div>
-        <div id="aiBrand" class="ai-brand hidden"></div>
-        <p id="aiSummary" class="ai-summary"></p>
-        <ul id="aiIndicators" class="ai-indicators"></ul>
-      </div>
-    </div>
-
-    <!-- Takedown Report -->
-    <div id="tdCard" class="td-card hidden">
-      <div class="td-card-header">
-        <span>Takedown Report</span>
-        <button id="tdRerunBtn" class="td-btn rerun" onclick="rerunTakedown()">Re-run Takedown Lookup</button>
-      </div>
-      <div class="td-body">
-        <div class="td-meta-grid">
-          <span class="td-label">Domain</span>        <span class="td-value" id="tdDomain"></span>
-          <span class="td-label">IP Address</span>    <span class="td-value" id="tdIp"></span>
-          <span class="td-label">Country</span>       <span class="td-value" id="tdCountry"></span>
-          <span class="td-label">Registrar</span>     <span class="td-value" id="tdRegistrar"></span>
-          <span class="td-label">Reg. Abuse</span>    <span class="td-value" id="tdRegAbuse"></span>
-          <span class="td-label">Hosting</span>       <span class="td-value" id="tdHosting"></span>
-          <span class="td-label">Host Abuse</span>    <span class="td-value" id="tdHostAbuse"></span>
-          <span class="td-label">Registered</span>    <span class="td-value" id="tdRegDate"></span>
-          <span class="td-label">Expires</span>       <span class="td-value" id="tdExpDate"></span>
-          <span class="td-label">Nameservers</span>   <span class="td-value" id="tdNs"></span>
-        </div>
-        <div class="td-copy-row">
-          <button class="td-btn" onclick="copyTd('subject')">Copy Subject</button>
-          <button class="td-btn" onclick="copyTd('body')">Copy Email Body</button>
-        </div>
-        <textarea id="tdEmailBody" class="td-email-body" rows="15" readonly></textarea>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Screenshot</div>
-      <div class="screenshot-wrap">
-        <img id="screenshot" src="" alt="Page screenshot" />
-      </div>
-      <div class="meta-grid">
-        <span class="meta-label">Input URL</span>   <span class="meta-value" id="mUrl"></span>
-        <span class="meta-label">Final URL</span>   <span class="meta-value" id="mFinal"></span>
-        <span class="meta-label">Title</span>       <span class="meta-value" id="mTitle"></span>
-        <span class="meta-label">HTTP Status</span> <span class="meta-value" id="mStatus"></span>
-        <span class="meta-label">Timestamp</span>   <span class="meta-value" id="mTs"></span>
-        <span class="meta-label" style="align-self:start">Headers</span>
-        <span class="meta-value">
-          <details><summary>Show response headers</summary>
-          <pre id="mHeaders"></pre></details>
-        </span>
-      </div>
-    </div>
+  <div class="topbar-search">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Search domains, brands, URLs…" oninput="handleSearch(this.value)">
   </div>
+  <div class="topbar-actions">
+    <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
+    <button class="icon-btn" onclick="showHome()"><span>🏠</span><span class="label">Home</span></button>
+    <form action="/logout" method="post" style="display:inline">
+      <button type="submit" class="icon-btn" title="Sign out">⏏</button>
+    </form>
+  </div>
+</header>
 
-  <!-- History -->
-  <div id="history" class="hidden">
-    <h2>Previous cases</h2>
-    <div class="card">
+<!-- ── Main ── -->
+<main class="main">
+  <!-- Home view -->
+  <div class="view active" id="homeView">
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card total"><div class="label">Total Scanned</div><div class="value" id="statTotal">—</div></div>
+      <div class="stat-card phishing"><div class="label">Phishing</div><div class="value" id="statPhishing">—</div></div>
+      <div class="stat-card suspicious"><div class="label">Suspicious</div><div class="value" id="statSuspicious">—</div></div>
+      <div class="stat-card legitimate"><div class="label">Legitimate</div><div class="value" id="statLegitimate">—</div></div>
+      <div class="stat-card inconclusive"><div class="label">Inconclusive</div><div class="value" id="statInconclusive">—</div></div>
+    </div>
+
+    <!-- Scan form -->
+    <div class="scan-section">
+      <div class="scan-row">
+        <input class="scan-input" type="text" id="urlInput" placeholder="https://suspicious-site.example.com" autocomplete="off" spellcheck="false">
+        <button class="btn-scan" id="scanBtn" onclick="startScan()">
+          <span id="scanBtnIcon">🔍</span> Analyze
+        </button>
+      </div>
+      <div class="scan-status" id="scanStatus"></div>
+      <div class="progress-bar" id="progressBar" style="display:none"><div class="fill"></div></div>
+      <div class="dup-warning" id="dupWarning"></div>
+    </div>
+
+    <!-- Cases list -->
+    <div class="section-header">
+      <span class="section-title">Scan History</span>
+      <span class="section-meta" id="caseCount"></span>
+    </div>
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>#</th>
-            <th>URL</th>
-            <th>Title</th>
+            <th>Domain / URL</th>
+            <th>Verdict</th>
+            <th>Confidence</th>
             <th>Status</th>
-            <th>Analyzed at</th>
+            <th>Scanned</th>
           </tr>
         </thead>
-        <tbody id="caseRows"></tbody>
+        <tbody id="casesBody">
+          <tr><td colspan="5"><div class="empty-state"><div class="icon">📭</div>No scans yet</div></td></tr>
+        </tbody>
       </table>
     </div>
   </div>
+
+  <!-- Detail view -->
+  <div class="view" id="detailView">
+    <div class="detail-header">
+      <button class="back-btn" onclick="showHome()">← Back</button>
+      <div class="detail-meta">
+        <div class="url" id="detailUrl"></div>
+        <h2 id="detailTitle"></h2>
+        <div class="detail-badges" id="detailBadges"></div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <!-- Left column: tabbed detail -->
+      <div>
+        <div class="card">
+          <div class="tabs" id="detailTabs">
+            <button class="tab active" onclick="switchTab('overview')">Overview</button>
+            <button class="tab" onclick="switchTab('screenshot')">Screenshot</button>
+            <button class="tab" onclick="switchTab('response')">Response</button>
+            <button class="tab" onclick="switchTab('intel')">Intel</button>
+            <button class="tab" onclick="switchTab('hunt')">Hunt &amp; Pivot</button>
+            <button class="tab" onclick="switchTab('takedown')">Takedown</button>
+          </div>
+
+          <!-- Overview -->
+          <div class="tab-content active" id="tab-overview">
+            <div id="overviewAI"></div>
+          </div>
+
+          <!-- Screenshot -->
+          <div class="tab-content" id="tab-screenshot">
+            <div class="screenshot-wrap" id="screenshotWrap">
+              <div class="empty-state">No screenshot available</div>
+            </div>
+          </div>
+
+          <!-- Response -->
+          <div class="tab-content" id="tab-response">
+            <div id="responseContent"></div>
+          </div>
+
+          <!-- Intel -->
+          <div class="tab-content" id="tab-intel">
+            <div class="gap-row" style="margin-bottom:0.75rem">
+              <button class="btn-sm" onclick="refreshIntel()">↻ Refresh Intel</button>
+              <span class="text-sm text-muted" id="intelNote">Results gathered automatically. Click refresh to re-query.</span>
+            </div>
+            <div id="intelContent"></div>
+          </div>
+
+          <!-- Hunt -->
+          <div class="tab-content" id="tab-hunt">
+            <div id="huntContent"></div>
+          </div>
+
+          <!-- Takedown -->
+          <div class="tab-content" id="tab-takedown">
+            <div id="takedownContent"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: sidebar -->
+      <div id="detailSidebar"></div>
+    </div>
+  </div>
+</main>
 </div>
 
+<!-- Toast container -->
+<div class="toast-container" id="toasts"></div>
+
 <script>
-  const $ = id => document.getElementById(id);
+// ── State ───────────────────────────────────────────────────────
+let allCases = [];
+let currentCase = null;
+let searchDebounce = null;
+let dupCheckDebounce = null;
 
-  function statusBadge(code) {
-    if (!code) return '—';
-    const cls = code < 300 ? 'status-2xx'
-              : code < 400 ? 'status-3xx'
-              : code < 500 ? 'status-4xx'
-              : 'status-5xx';
-    return `<span class="status-badge ${cls}">${code}</span>`;
+// ── Theme ───────────────────────────────────────────────────────
+(function initTheme() {
+  const t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
+})();
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '🌙' : '☀️';
+}
+
+// ── Toast ───────────────────────────────────────────────────────
+function toast(msg, type = 'info', duration = 3500) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  el.innerHTML = `<span>${icons[type] || 'ℹ'}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ── Views ───────────────────────────────────────────────────────
+function showHome() {
+  document.getElementById('homeView').classList.add('active');
+  document.getElementById('detailView').classList.remove('active');
+  loadStats();
+  loadCases();
+}
+
+function showDetail(c) {
+  currentCase = c;
+  document.getElementById('homeView').classList.remove('active');
+  document.getElementById('detailView').classList.add('active');
+  renderDetail(c);
+}
+
+// ── Navigation ──────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['overview','screenshot','response','intel','hunt','takedown'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(tc => {
+    tc.classList.toggle('active', tc.id === `tab-${name}`);
+  });
+}
+
+// ── Stats ───────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await fetch('/api/stats').then(r => r.json());
+    document.getElementById('statTotal').textContent = s.total;
+    document.getElementById('statPhishing').textContent = s.phishing;
+    document.getElementById('statSuspicious').textContent = s.suspicious;
+    document.getElementById('statLegitimate').textContent = s.legitimate;
+    document.getElementById('statInconclusive').textContent = s.inconclusive;
+  } catch {}
+}
+
+// ── Cases ───────────────────────────────────────────────────────
+async function loadCases(query = '') {
+  try {
+    const url = query ? `/api/cases?search=${encodeURIComponent(query)}` : '/api/cases';
+    allCases = await fetch(url).then(r => r.json());
+    renderCases(allCases);
+  } catch (e) {
+    toast('Failed to load cases', 'error');
   }
+}
 
-  function fmtTs(ts) {
-    if (!ts) return '—';
-    try { return new Date(ts).toLocaleString(); } catch { return ts; }
+function renderCases(cases) {
+  const el = document.getElementById('casesBody');
+  document.getElementById('caseCount').textContent = cases.length ? `${cases.length} result${cases.length !== 1 ? 's' : ''}` : '';
+  if (!cases.length) {
+    el.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">📭</div>No results</div></td></tr>`;
+    return;
   }
+  el.innerHTML = cases.map(c => {
+    const domain = extractDomain(c.url);
+    const path = c.url.replace(/^https?:\/\/[^/]+/, '') || '/';
+    return `<tr onclick="openCase(${c.id})">
+      <td class="td-url">
+        <span class="domain">${esc(domain)}</span>
+        <span class="path">${esc(path.length > 60 ? path.slice(0,60)+'…' : path)}</span>
+      </td>
+      <td>${verdictBadge(c.ai_verdict)}</td>
+      <td>${confBar(c.ai_confidence)}</td>
+      <td>${statusBadge(c.status_code)}</td>
+      <td class="td-time">${formatTime(c.timestamp)}</td>
+    </tr>`;
+  }).join('');
+}
 
-  const VERDICT_CLASS = {
-    phishing:     'verdict-phishing',
-    suspicious:   'verdict-suspicious',
-    legitimate:   'verdict-legitimate',
-    inconclusive: 'verdict-inconclusive',
-  };
+async function openCase(id) {
+  try {
+    const c = await fetch(`/api/cases/${id}`).then(r => r.json());
+    showDetail(c);
+  } catch { toast('Failed to load case', 'error'); }
+}
 
-  const ACTION_CLASS = {
-    takedown: 'action-takedown',
-    monitor:  'action-monitor',
-    dismiss:  'action-dismiss',
-  };
+// ── Search ──────────────────────────────────────────────────────
+function handleSearch(val) {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    loadCases(val.trim());
+  }, 300);
+}
 
-  function showAi(c) {
-    const verdict = c.ai_verdict;
-    if (!verdict) { $('aiCard').classList.add('hidden'); return; }
-
-    const vEl = $('aiVerdict');
-    vEl.textContent = verdict;
-    vEl.className = 'verdict-badge ' + (VERDICT_CLASS[verdict] || 'verdict-inconclusive');
-
-    const aEl = $('aiAction');
-    const action = c.ai_recommended_action || '';
-    aEl.textContent = action;
-    aEl.className = 'action-badge ' + (ACTION_CLASS[action] || '');
-
-    const conf = c.ai_confidence ?? 0;
-    $('aiConfFill').style.width = conf + '%';
-    $('aiConfText').textContent = conf + '% confidence';
-
-    const brandEl = $('aiBrand');
-    if (c.ai_brand_impersonated) {
-      brandEl.textContent = '';
-      brandEl.append('Brand impersonated: ');
-      const brandSpan = document.createElement('span');
-      brandSpan.textContent = c.ai_brand_impersonated;
-      brandEl.appendChild(brandSpan);
-      brandEl.classList.remove('hidden');
-    } else {
-      brandEl.classList.add('hidden');
-    }
-
-    $('aiSummary').textContent = c.ai_summary || '';
-
-    const indicators = Array.isArray(c.ai_risk_indicators) ? c.ai_risk_indicators : [];
-    const indicatorList = $('aiIndicators');
-    indicatorList.innerHTML = '';
-    indicators.forEach(i => {
-      const li = document.createElement('li');
-      li.textContent = i;
-      indicatorList.appendChild(li);
-    });
-
-    $('aiCard').classList.remove('hidden');
-  }
-
-  let _currentCaseId = null;
-  let _tdSubject = '';
-
-  function showTakedown(td) {
-    if (!td) { $('tdCard').classList.add('hidden'); return; }
-
-    function setMailto(el, e) {
-      el.textContent = '';
-      if (!e || e === '[Unknown]') { el.textContent = e || '—'; return; }
-      const a = document.createElement('a');
-      a.href = 'mailto:' + e;
-      a.textContent = e;
-      el.appendChild(a);
-    }
-
-    $('tdDomain').textContent    = td.domain        || '—';
-    $('tdIp').textContent        = td.ip_address     || '—';
-    $('tdCountry').textContent   = td.hosting_country || '—';
-    $('tdRegistrar').textContent = td.registrar_name  || '—';
-    setMailto($('tdRegAbuse'), td.registrar_abuse_email);
-    $('tdHosting').textContent   = td.hosting_org     || '—';
-    setMailto($('tdHostAbuse'), td.hosting_abuse_email);
-    $('tdRegDate').textContent   = td.rdap_registration_date || '—';
-    $('tdExpDate').textContent   = td.rdap_expiry_date       || '—';
-    $('tdNs').textContent        = (td.nameservers || []).join(', ') || '—';
-    $('tdEmailBody').value       = td.email_body || '';
-    _tdSubject = td.email_subject || '';
-
-    $('tdCard').classList.remove('hidden');
-  }
-
-  function copyTd(what) {
-    const text = what === 'subject' ? _tdSubject : $('tdEmailBody').value;
-    navigator.clipboard.writeText(text).catch(() => {
-      $('tdEmailBody').select();
-      document.execCommand('copy');
-    });
-  }
-
-  async function rerunTakedown() {
-    if (!_currentCaseId) return;
-    const btn = $('tdRerunBtn');
-    btn.disabled = true;
-    btn.textContent = 'Running…';
+// ── Duplicate check ─────────────────────────────────────────────
+function handleUrlInput(val) {
+  clearTimeout(dupCheckDebounce);
+  const warn = document.getElementById('dupWarning');
+  warn.classList.remove('visible');
+  if (!val.trim() || !val.includes('.')) return;
+  dupCheckDebounce = setTimeout(async () => {
     try {
-      const r = await fetch(`/api/cases/${_currentCaseId}/takedown`, { method: 'POST' });
-      if (r.ok) showTakedown(await r.json());
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Re-run Takedown Lookup';
-    }
-  }
-
-  function showCase(c) {
-    _currentCaseId = c.id || null;
-    $('screenshot').src = c.screenshot_url || '';
-    $('mUrl').textContent    = c.url        || '—';
-    $('mFinal').textContent  = c.final_url  || '—';
-    $('mTitle').textContent  = c.title      || '—';
-    $('mStatus').innerHTML   = statusBadge(c.status_code);
-    $('mTs').textContent     = fmtTs(c.timestamp);
-    $('mHeaders').textContent = JSON.stringify(c.raw_headers, null, 2);
-    showAi(c);
-    showTakedown(c.takedown_data || null);
-    $('result').classList.remove('hidden');
-    $('result').scrollIntoView({ behavior: 'smooth' });
-  }
-
-  function renderHistory(cases) {
-    if (!cases.length) return;
-    const tbody = $('caseRows');
-    tbody.innerHTML = '';
-    cases.forEach(c => {
-      const tr = tbody.insertRow();
-      tr.onclick = () => loadCase(c.id);
-
-      tr.insertCell().textContent = c.id;
-
-      const tdUrl = tr.insertCell();
-      tdUrl.title = c.url || '';
-      tdUrl.textContent = c.url || '—';
-
-      const tdTitle = tr.insertCell();
-      tdTitle.title = c.title || '';
-      tdTitle.textContent = c.title || '—';
-
-      tr.insertCell().innerHTML = statusBadge(c.status_code); // status_code is a server integer
-
-      const tdTs = tr.insertCell();
-      tdTs.className = 'ts';
-      tdTs.textContent = fmtTs(c.timestamp);
-    });
-    $('history').classList.remove('hidden');
-  }
-
-  async function loadCase(id) {
-    const r = await fetch(`/api/cases/${id}`);
-    if (r.ok) showCase(await r.json());
-  }
-
-  async function loadHistory() {
-    const r = await fetch('/api/cases');
-    if (r.ok) renderHistory(await r.json());
-  }
-
-  async function submitUrl() {
-    const url = $('urlInput').value.trim();
-    if (!url) return;
-
-    const btn = $('submitBtn');
-    const status = $('status');
-    btn.disabled = true;
-    status.className = '';
-    status.innerHTML = '<span class="spinner"></span>Analyzing — this takes a few seconds…';
-
-    try {
-      const r = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await r.json();
-      if (!r.ok) {
-        status.textContent = `Error: ${data.detail || r.statusText}`;
-        status.className = 'error';
-        return;
+      const r = await fetch(`/api/cases/check?url=${encodeURIComponent(val.trim())}`).then(r => r.json());
+      if (r.existing_cases && r.existing_cases.length > 0) {
+        const latest = r.existing_cases[0];
+        warn.innerHTML = `⚠ <strong>${esc(r.domain)}</strong> was previously scanned ${formatTime(latest.timestamp)} with verdict <strong>${latest.ai_verdict || 'unknown'}</strong>.
+          <a href="#" onclick="openCase(${latest.id});return false">View last scan</a> or continue to re-scan.`;
+        warn.classList.add('visible');
       }
+    } catch {}
+  }, 500);
+}
 
-      status.textContent = 'Done.';
-      showCase(data);
-      loadHistory();
-    } catch (err) {
-      status.textContent = `Network error: ${err.message}`;
-      status.className = 'error';
-    } finally {
-      btn.disabled = false;
+document.getElementById('urlInput').addEventListener('input', e => handleUrlInput(e.target.value));
+document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') startScan(); });
+
+// ── Scan ────────────────────────────────────────────────────────
+async function startScan() {
+  const input = document.getElementById('urlInput');
+  let url = input.value.trim();
+  if (!url) { toast('Enter a URL to analyze', 'info'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+
+  const btn = document.getElementById('scanBtn');
+  const statusEl = document.getElementById('scanStatus');
+  const progressBar = document.getElementById('progressBar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+  statusEl.textContent = 'Launching headless browser…';
+  statusEl.classList.add('visible');
+  progressBar.style.display = 'block';
+
+  const steps = ['Capturing mobile screenshot…', 'Running AI vision analysis…', 'Gathering threat intelligence…', 'Generating report…'];
+  let stepIdx = 0;
+  const stepTimer = setInterval(() => {
+    if (stepIdx < steps.length) statusEl.textContent = steps[stepIdx++];
+  }, 15000);
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    clearInterval(stepTimer);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || `HTTP ${res.status}`);
     }
+    const c = await res.json();
+    input.value = '';
+    document.getElementById('dupWarning').classList.remove('visible');
+    toast(`Analysis complete: ${c.ai_verdict || 'inconclusive'}`, c.ai_verdict === 'phishing' ? 'error' : c.ai_verdict === 'legitimate' ? 'success' : 'info');
+    showDetail(c);
+  } catch (e) {
+    clearInterval(stepTimer);
+    toast(`Scan failed: ${e.message}`, 'error');
+    statusEl.textContent = `Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>🔍</span> Analyze';
+    progressBar.style.display = 'none';
+    setTimeout(() => statusEl.classList.remove('visible'), 3000);
   }
+}
 
-  $('urlInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') submitUrl();
+// ── Detail render ────────────────────────────────────────────────
+function renderDetail(c) {
+  document.getElementById('detailUrl').textContent = c.final_url || c.url;
+  document.getElementById('detailTitle').textContent = c.title || '(No title)';
+
+  const badges = [
+    verdictBadge(c.ai_verdict),
+    c.status_code ? statusBadge(c.status_code) : '',
+    c.ai_brand_impersonated ? `<span class="badge info">${esc(c.ai_brand_impersonated)}</span>` : '',
+  ].filter(Boolean).join(' ');
+  document.getElementById('detailBadges').innerHTML = badges;
+
+  switchTab('overview');
+  renderOverview(c);
+  renderScreenshot(c);
+  renderResponse(c);
+  renderIntel(c.intel_data);
+  renderHunt(c.intel_data);
+  renderTakedown(c);
+  renderSidebar(c);
+}
+
+function renderOverview(c) {
+  const conf = c.ai_confidence ?? 0;
+  const indicators = (c.ai_risk_indicators || []).map(i => `<div class="indicator"><span class="dot"></span><span>${esc(i)}</span></div>`).join('');
+  document.getElementById('overviewAI').innerHTML = `
+    <div class="info-grid" style="margin-bottom:1rem">
+      <div class="info-row">
+        <div class="info-label">Verdict</div>
+        <div class="info-value">${verdictBadge(c.ai_verdict)}</div>
+      </div>
+      <div class="info-row">
+        <div class="info-label">Confidence</div>
+        <div class="info-value">${confBar(conf)} <span class="text-sm">${conf}%</span></div>
+      </div>
+      <div class="info-row">
+        <div class="info-label">Brand Targeted</div>
+        <div class="info-value">${c.ai_brand_impersonated ? esc(c.ai_brand_impersonated) : '<span class="text-muted">None</span>'}</div>
+      </div>
+      <div class="info-row">
+        <div class="info-label">Recommended Action</div>
+        <div class="info-value">${actionBadge(c.ai_recommended_action)}</div>
+      </div>
+      ${c.ai_summary ? `<div class="info-row full"><div class="info-label">AI Summary</div><div class="info-value">${esc(c.ai_summary)}</div></div>` : ''}
+    </div>
+    ${indicators ? `<div style="margin-bottom:0.5rem;font-size:0.78rem;font-weight:600;color:var(--muted);">RISK INDICATORS</div><div class="indicators">${indicators}</div>` : ''}
+  `;
+}
+
+function renderScreenshot(c) {
+  const el = document.getElementById('screenshotWrap');
+  if (c.screenshot_url) {
+    el.innerHTML = `<img src="${c.screenshot_url}" alt="Screenshot" loading="lazy">`;
+  } else {
+    el.innerHTML = '<div class="empty-state">No screenshot available</div>';
+  }
+}
+
+function renderResponse(c) {
+  const el = document.getElementById('responseContent');
+  const headers = c.raw_headers || {};
+  const headerLines = Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join('\n');
+  const body = c.response_body || '';
+  el.innerHTML = `
+    <div style="margin-bottom:0.75rem">
+      <div style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:0.4rem">RESPONSE HEADERS</div>
+      <div class="code-block mono" style="max-height:200px">${esc(headerLines || '(none)')}</div>
+    </div>
+    <div>
+      <div style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:0.4rem">
+        RESPONSE BODY <span class="text-muted" style="font-weight:400">(first 100 KB of rendered HTML)</span>
+      </div>
+      <div class="code-block mono" style="max-height:500px">${esc(body || '(not captured)')}</div>
+    </div>
+  `;
+}
+
+function renderIntel(intel) {
+  const el = document.getElementById('intelContent');
+  if (!intel) {
+    el.innerHTML = '<div class="text-muted text-sm">No intel data. Click Refresh Intel to query external sources.</div>';
+    return;
+  }
+  let html = '';
+
+  // URLScan
+  html += renderIntelSource('URLScan.io', '🔍', intel.urlscan, (d) => {
+    if (!d.configured) return `<div class="intel-not-configured">No API key — public results only (limited).</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.results || !d.results.length) return `<div class="intel-not-configured">No results found for this domain.</div>`;
+    return `<div class="intel-key-val"><span class="intel-key">Found scans</span><span class="intel-val">${d.total || d.results.length}</span></div>` +
+      d.results.slice(0, 3).map(r => `
+        <div style="border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.75rem;margin-top:0.4rem">
+          <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.2rem">${esc(r.url || '')}</div>
+          <div class="gap-row">
+            ${r.timestamp ? `<span class="tag">${r.timestamp.slice(0,10)}</span>` : ''}
+            ${r.ip ? `<span class="tag">${esc(r.ip)}</span>` : ''}
+            ${r.country ? `<span class="tag">${esc(r.country)}</span>` : ''}
+            ${r.verdicts && r.verdicts.malicious ? `<span class="badge phishing dot">Malicious</span>` : ''}
+          </div>
+          ${r.screenshot ? `<img class="urlscan-thumb" src="${r.screenshot}" alt="scan thumb" loading="lazy">` : ''}
+        </div>`).join('');
   });
 
-  loadHistory();
+  // VirusTotal
+  html += renderIntelSource('VirusTotal', '🦠', intel.virustotal, (d) => {
+    if (!d.configured) return `<div class="intel-not-configured">VIRUSTOTAL_API_KEY not configured.</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.data) return `<div class="intel-not-configured">No data.</div>`;
+    if (d.data.not_found) return `<div class="intel-not-configured">URL not found in VirusTotal.</div>`;
+    const vt = d.data;
+    return `
+      <div class="vt-stats">
+        <div class="vt-stat mal"><div class="n">${vt.malicious || 0}</div><div class="l">Malicious</div></div>
+        <div class="vt-stat sus"><div class="n">${vt.suspicious || 0}</div><div class="l">Suspicious</div></div>
+        <div class="vt-stat harm"><div class="n">${vt.harmless || 0}</div><div class="l">Harmless</div></div>
+        <div class="vt-stat un"><div class="n">${vt.undetected || 0}</div><div class="l">Undetected</div></div>
+      </div>
+      ${vt.threat_names && vt.threat_names.length ? `<div class="intel-key-val"><span class="intel-key">Threat names</span><span class="intel-val">${vt.threat_names.map(t => `<span class="tag">${esc(t)}</span>`).join(' ')}</span></div>` : ''}
+      ${vt.last_analysis_date ? `<div class="intel-key-val"><span class="intel-key">Last analysis</span><span class="intel-val">${new Date(vt.last_analysis_date * 1000).toLocaleDateString()}</span></div>` : ''}
+      ${vt.reputation !== undefined ? `<div class="intel-key-val"><span class="intel-key">Reputation</span><span class="intel-val">${vt.reputation}</span></div>` : ''}
+    `;
+  });
+
+  // Shodan
+  html += renderIntelSource('Shodan', '🛰', intel.shodan, (d) => {
+    if (!d.configured) return `<div class="intel-not-configured">SHODAN_API_KEY not configured.</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.data || d.data.not_found) return `<div class="intel-not-configured">No data found.</div>`;
+    const s = d.data;
+    return `
+      ${s.org ? `<div class="intel-key-val"><span class="intel-key">Organization</span><span class="intel-val">${esc(s.org)}</span></div>` : ''}
+      ${s.asn ? `<div class="intel-key-val"><span class="intel-key">ASN</span><span class="intel-val mono">${esc(s.asn)}</span></div>` : ''}
+      ${s.country ? `<div class="intel-key-val"><span class="intel-key">Country</span><span class="intel-val">${esc(s.country)}${s.city ? `, ${esc(s.city)}` : ''}</span></div>` : ''}
+      ${s.ports && s.ports.length ? `<div class="intel-key-val"><span class="intel-key">Open ports</span><span class="intel-val mono">${s.ports.join(', ')}</span></div>` : ''}
+      ${s.hostnames && s.hostnames.length ? `<div class="intel-key-val"><span class="intel-key">Hostnames</span><span class="intel-val mono">${s.hostnames.map(h => esc(h)).join(', ')}</span></div>` : ''}
+      ${s.vulns && s.vulns.length ? `<div class="intel-key-val"><span class="intel-key">CVEs</span><span class="intel-val">${s.vulns.map(v => `<span class="tag" style="color:var(--red)">${esc(v)}</span>`).join(' ')}</span></div>` : ''}
+      ${s.tags && s.tags.length ? `<div class="intel-key-val"><span class="intel-key">Tags</span><span class="intel-val">${s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join(' ')}</span></div>` : ''}
+    `;
+  });
+
+  // Censys
+  html += renderIntelSource('Censys', '🌐', intel.censys, (d) => {
+    if (!d.configured) return `<div class="intel-not-configured">CENSYS_API_ID / CENSYS_API_SECRET not configured.</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.data || d.data.not_found) return `<div class="intel-not-configured">No data found.</div>`;
+    const s = d.data;
+    return `
+      ${s.asn_name ? `<div class="intel-key-val"><span class="intel-key">ASN Name</span><span class="intel-val">${esc(s.asn_name)}${s.asn ? ` (${s.asn})` : ''}</span></div>` : ''}
+      ${s.country ? `<div class="intel-key-val"><span class="intel-key">Location</span><span class="intel-val">${esc(s.country)}${s.city ? `, ${esc(s.city)}` : ''}</span></div>` : ''}
+      ${s.labels && s.labels.length ? `<div class="intel-key-val"><span class="intel-key">Labels</span><span class="intel-val">${s.labels.map(l => `<span class="tag">${esc(l)}</span>`).join(' ')}</span></div>` : ''}
+      ${s.services && s.services.length ? `<div class="intel-key-val"><span class="intel-key">Services</span><span class="intel-val mono">${s.services.map(svc => `${svc.port}/${svc.transport}${svc.service_name ? ' (' + esc(svc.service_name) + ')' : ''}`).join(', ')}</span></div>` : ''}
+    `;
+  });
+
+  el.innerHTML = html;
+}
+
+function renderIntelSource(title, icon, data, contentFn) {
+  if (!data) return `<div class="intel-source"><div class="intel-source-header"><div class="intel-source-title">${icon} ${title}</div><span class="badge">N/A</span></div></div>`;
+  return `
+    <div class="intel-source">
+      <div class="intel-source-header">
+        <div class="intel-source-title">${icon} ${title}</div>
+        ${data.configured ? '<span class="badge legitimate dot">Active</span>' : '<span class="badge inconclusive">Not configured</span>'}
+      </div>
+      <div class="intel-source-body">${contentFn(data)}</div>
+    </div>`;
+}
+
+function renderHunt(intel) {
+  const el = document.getElementById('huntContent');
+  const pivots = intel && intel.pivot_suggestions;
+  if (!pivots || !pivots.length) {
+    el.innerHTML = '<div class="text-muted text-sm">Run a scan first to generate pivot suggestions.</div>';
+    return;
+  }
+  el.innerHTML = pivots.map(p => `
+    <div class="pivot-card">
+      <div class="pivot-cat">${esc(p.category)}</div>
+      <div class="pivot-title">${esc(p.title)}</div>
+      <div class="pivot-desc">${esc(p.description)}</div>
+      <div class="pivot-links">
+        ${(p.queries || []).map((q, i) => `<a class="pivot-link" href="${q}" target="_blank" rel="noopener">Open ${i + 1}</a>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function renderTakedown(c) {
+  const el = document.getElementById('takedownContent');
+  const td = c.takedown_data;
+  if (!td) {
+    const v = c.ai_verdict;
+    if (v && v !== 'phishing' && v !== 'suspicious') {
+      el.innerHTML = '<div class="text-muted text-sm">Takedown report is only generated for phishing/suspicious verdicts.</div>';
+    } else {
+      el.innerHTML = `<div class="text-muted text-sm">No takedown data yet. <button class="btn-sm" onclick="regenTakedown()">Generate report</button></div>`;
+    }
+    return;
+  }
+  el.innerHTML = `
+    <div class="takedown-grid">
+      ${tdField('Domain', td.domain)}
+      ${tdField('IP Address', td.ip_address)}
+      ${tdField('Registrar', td.registrar_name)}
+      ${tdField('Registrar Abuse', td.registrar_abuse_email)}
+      ${tdField('Hosting Org', td.hosting_org)}
+      ${tdField('Hosting Country', td.hosting_country)}
+      ${tdField('Hosting Abuse', td.hosting_abuse_email)}
+      ${tdField('Registered', td.rdap_registration_date ? td.rdap_registration_date.slice(0,10) : '')}
+      ${tdField('Expires', td.rdap_expiry_date ? td.rdap_expiry_date.slice(0,10) : '')}
+      ${tdField('Nameservers', (td.nameservers || []).join(', '))}
+    </div>
+    <div style="margin-bottom:0.75rem">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);margin-bottom:0.35rem">EMAIL SUBJECT</div>
+      <div class="copy-row">
+        <div class="field-wrap"><input type="text" value="${esc(td.email_subject || '')}" readonly></div>
+        <button class="btn-copy" onclick="copyText(this, ${JSON.stringify(td.email_subject || '')})">Copy</button>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);margin-bottom:0.35rem">EMAIL BODY</div>
+      <div class="copy-row">
+        <div class="field-wrap"><textarea rows="10" readonly>${esc(td.email_body || '')}</textarea></div>
+        <button class="btn-copy" onclick="copyText(this, ${JSON.stringify(td.email_body || '')})">Copy</button>
+      </div>
+    </div>
+    <div style="margin-top:0.75rem">
+      <button class="btn-sm" onclick="regenTakedown()">↻ Regenerate</button>
+    </div>
+  `;
+}
+
+function tdField(label, val) {
+  return `<div class="takedown-field"><label>${label}</label><span>${esc(val || '—')}</span></div>`;
+}
+
+function renderSidebar(c) {
+  const td = c.takedown_data || {};
+  const intel = c.intel_data || {};
+  document.getElementById('detailSidebar').innerHTML = `
+    <div class="card" style="margin-bottom:0.75rem">
+      <div class="card-header"><div class="card-title">📋 Case Metadata</div></div>
+      <div class="card-body">
+        <div class="info-row" style="margin-bottom:0.5rem">
+          <div class="info-label">Scanned</div>
+          <div class="info-value">${formatTimeFull(c.timestamp)}</div>
+        </div>
+        <div class="info-row" style="margin-bottom:0.5rem">
+          <div class="info-label">Final URL</div>
+          <div class="info-value mono" style="font-size:0.72rem;word-break:break-all">${esc(c.final_url || c.url)}</div>
+        </div>
+        <div class="info-row" style="margin-bottom:0.5rem">
+          <div class="info-label">HTTP Status</div>
+          <div class="info-value">${statusBadge(c.status_code)}</div>
+        </div>
+        ${td.ip_address && td.ip_address !== '[Unknown]' ? `<div class="info-row" style="margin-bottom:0.5rem"><div class="info-label">IP Address</div><div class="info-value mono" style="font-size:0.8rem">${esc(td.ip_address)}</div></div>` : ''}
+        ${td.hosting_org && td.hosting_org !== '[Unknown]' ? `<div class="info-row" style="margin-bottom:0.5rem"><div class="info-label">Hosting</div><div class="info-value">${esc(td.hosting_org)}</div></div>` : ''}
+        ${td.rdap_registration_date && td.rdap_registration_date !== '[Unknown]' ? `<div class="info-row"><div class="info-label">Domain Age</div><div class="info-value">${esc(td.rdap_registration_date.slice(0,10))}</div></div>` : ''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔗 Quick Links</div>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:0.4rem">
+        ${quickLink('URLScan.io', `https://urlscan.io/search/#domain:${extractDomain(c.final_url || c.url)}`)}
+        ${quickLink('VirusTotal', `https://www.virustotal.com/gui/url/${btoa(c.final_url || c.url)}`)}
+        ${quickLink('Shodan', td.ip_address && td.ip_address !== '[Unknown]' ? `https://www.shodan.io/host/${td.ip_address}` : `https://www.shodan.io/search?query=hostname:${extractDomain(c.final_url || c.url)}`)}
+        ${quickLink('crt.sh', `https://crt.sh/?q=${extractDomain(c.final_url || c.url)}`)}
+        ${quickLink('SecurityTrails', `https://securitytrails.com/domain/${extractDomain(c.final_url || c.url)}/history/a`)}
+        ${quickLink('Whois', `https://whois.domaintools.com/${extractDomain(c.final_url || c.url)}`)}
+      </div>
+    </div>
+  `;
+}
+
+function quickLink(label, url) {
+  return `<a href="${url}" target="_blank" rel="noopener" style="font-size:0.8rem;display:flex;align-items:center;justify-content:space-between;padding:0.3rem 0.5rem;border-radius:6px;border:1px solid var(--border);color:var(--text);transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">${esc(label)}<span style="color:var(--muted)">↗</span></a>`;
+}
+
+// ── Actions ──────────────────────────────────────────────────────
+async function regenTakedown() {
+  if (!currentCase) return;
+  toast('Regenerating takedown report…', 'info');
+  try {
+    const td = await fetch(`/api/cases/${currentCase.id}/takedown`, { method: 'POST' }).then(r => r.json());
+    currentCase.takedown_data = td;
+    renderTakedown(currentCase);
+    toast('Takedown report updated', 'success');
+  } catch { toast('Failed to regenerate takedown', 'error'); }
+}
+
+async function refreshIntel() {
+  if (!currentCase) return;
+  document.getElementById('intelContent').innerHTML = '<div class="text-muted text-sm"><span class="spinner"></span> Querying threat intel sources…</div>';
+  try {
+    const intel = await fetch(`/api/cases/${currentCase.id}/intel`, { method: 'POST' }).then(r => r.json());
+    currentCase.intel_data = intel;
+    renderIntel(intel);
+    renderHunt(intel);
+    renderSidebar(currentCase);
+    toast('Intel refreshed', 'success');
+  } catch { toast('Failed to refresh intel', 'error'); }
+}
+
+// ── Copy ─────────────────────────────────────────────────────────
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  }).catch(() => toast('Copy failed', 'error'));
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function extractDomain(url) {
+  if (!url) return '';
+  try { return new URL(url).hostname; } catch { return url.split('/')[0]; }
+}
+
+function verdictBadge(v) {
+  if (!v) return '<span class="badge inconclusive dot">Unknown</span>';
+  const labels = { phishing: '🎣 Phishing', suspicious: '⚠ Suspicious', legitimate: '✓ Legitimate', inconclusive: '? Inconclusive' };
+  return `<span class="badge ${v} dot">${labels[v] || v}</span>`;
+}
+
+function actionBadge(a) {
+  if (!a) return '—';
+  const map = { takedown: '<span class="badge phishing">Takedown</span>', monitor: '<span class="badge suspicious">Monitor</span>', dismiss: '<span class="badge legitimate">Dismiss</span>' };
+  return map[a] || a;
+}
+
+function statusBadge(code) {
+  if (!code) return '<span class="status-badge status-0">—</span>';
+  const cls = `status-${Math.floor(code / 100)}`;
+  return `<span class="status-badge ${cls}">${code}</span>`;
+}
+
+function confBar(val) {
+  if (val == null) return '<span class="text-muted">—</span>';
+  const pct = Math.max(0, Math.min(100, val));
+  const cls = pct >= 70 ? 'high' : pct >= 40 ? 'med' : 'low';
+  return `<div class="conf-bar ${cls}"><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>`;
+}
+
+function formatTime(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    if (diff < 604800000) return `${Math.floor(diff/86400000)}d ago`;
+    return d.toLocaleDateString();
+  } catch { return ts; }
+}
+
+function formatTimeFull(ts) {
+  if (!ts) return '—';
+  try { return new Date(ts).toLocaleString(); } catch { return ts; }
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+loadStats();
+loadCases();
 </script>
 </body>
 </html>

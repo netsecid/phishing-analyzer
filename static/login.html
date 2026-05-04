@@ -1,113 +1,109 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phishing Analyzer — Login</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-
-    .card {
-      background: #1a202c;
-      border: 1px solid #2d3748;
-      border-radius: 8px;
-      padding: 2.5rem 2rem;
-      width: 100%;
-      max-width: 360px;
-    }
-
-    h1 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #f8fafc;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.25rem;
-    }
-
-    .subtitle {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin-bottom: 2rem;
-    }
-
-    label {
-      display: block;
-      font-size: 0.8rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.4rem;
-    }
-
-    input[type="password"] {
-      width: 100%;
-      padding: 0.6rem 0.9rem;
-      border-radius: 6px;
-      border: 1px solid #2d3748;
-      background: #0f1117;
-      color: #e2e8f0;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.15s;
-      margin-bottom: 1rem;
-    }
-
-    input[type="password"]:focus { border-color: #4f86f7; }
-
-    button {
-      width: 100%;
-      padding: 0.65rem 1.2rem;
-      border-radius: 6px;
-      border: none;
-      background: #4f86f7;
-      color: #fff;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    button:hover { background: #3b6fd4; }
-
-    .error-msg {
-      display: none;
-      font-size: 0.85rem;
-      color: #f87171;
-      margin-bottom: 1rem;
-    }
-
-    .error-msg.visible { display: block; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phishing Analyzer — Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="dark"] {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #2f81f7;
+    --accent-hover: #388bfd; --danger: #f85149; --input-bg: #0d1117;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8fa; --surface: #ffffff; --border: #d0d7de;
+    --text: #1f2328; --muted: #656d76; --accent: #0969da;
+    --accent-hover: #0860ca; --danger: #cf222e; --input-bg: #ffffff;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex;
+    align-items: center; justify-content: center;
+    transition: background 0.2s, color 0.2s;
+  }
+  .wrap { width: 100%; max-width: 360px; padding: 1rem; }
+  .logo { text-align: center; margin-bottom: 2rem; }
+  .logo-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #f85149 0%, #ff7b72 100%);
+    border-radius: 14px; display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 26px; margin-bottom: 0.75rem;
+    box-shadow: 0 4px 16px rgba(248,81,73,0.3);
+  }
+  .logo h1 { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
+  .logo p { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.75rem;
+  }
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.78rem; font-weight: 500; color: var(--muted); margin-bottom: 0.4rem; }
+  input[type="password"] {
+    width: 100%; padding: 0.6rem 0.75rem;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.88rem;
+    font-family: inherit; outline: none; transition: border-color 0.15s;
+  }
+  input[type="password"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,129,247,0.15); }
+  .btn {
+    width: 100%; padding: 0.65rem; background: var(--accent);
+    color: #fff; border: none; border-radius: 8px;
+    font-size: 0.88rem; font-weight: 500; font-family: inherit;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent-hover); }
+  .error {
+    display: none; background: rgba(248,81,73,0.08);
+    border: 1px solid rgba(248,81,73,0.25); border-radius: 8px;
+    padding: 0.6rem 0.75rem; font-size: 0.78rem;
+    color: var(--danger); margin-bottom: 1rem;
+  }
+  .theme-toggle {
+    position: fixed; top: 1rem; right: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.4rem 0.65rem;
+    color: var(--muted); cursor: pointer; font-size: 0.95rem;
+    transition: all 0.15s; line-height: 1;
+  }
+  .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
+</style>
 </head>
 <body>
-  <div class="card">
+<button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙</button>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-icon">🎣</div>
     <h1>Phishing Analyzer</h1>
-    <p class="subtitle">Internal security tool</p>
-
-    <p class="error-msg" id="errorMsg">Incorrect password. Please try again.</p>
-
-    <form method="POST" action="/login">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" autofocus autocomplete="current-password" />
-      <button type="submit">Login</button>
+    <p>Security Investigation Tool</p>
+  </div>
+  <div class="card">
+    <div class="error" id="errMsg">Incorrect password. Please try again.</div>
+    <form method="post" action="/login">
+      <div class="field">
+        <label for="pw">Password</label>
+        <input type="password" id="pw" name="password" placeholder="Enter access password" autofocus>
+      </div>
+      <button type="submit" class="btn">Sign in</button>
     </form>
   </div>
-
-  <script>
-    if (new URLSearchParams(window.location.search).get('error')) {
-      document.getElementById('errorMsg').classList.add('visible');
-    }
-  </script>
+</div>
+<script>
+  if (new URLSearchParams(location.search).get('error'))
+    document.getElementById('errMsg').style.display = 'block';
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  document.getElementById('themeBtn').textContent = saved === 'dark' ? '🌙' : '☀️';
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    document.getElementById('themeBtn').textContent = next === 'dark' ? '🌙' : '☀️';
+  }
+</script>
 </body>
 </html>

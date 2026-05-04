@@ -28,6 +28,8 @@ IPHONE_14 = {
     "has_touch": True,
 }
 
+_BODY_MAX_BYTES = 100_000  # 100 KB cap on stored response body
+
 
 def analyze(url: str) -> dict:
     result = {
@@ -36,6 +38,7 @@ def analyze(url: str) -> dict:
         "title": None,
         "status": None,
         "headers": {},
+        "body": None,
         "screenshot": None,
         "error": None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -45,7 +48,7 @@ def analyze(url: str) -> dict:
         browser = pw.chromium.launch(headless=True)
         context = browser.new_context(
             **IPHONE_14,
-            ignore_https_errors=True,  # phishing pages often have cert issues
+            ignore_https_errors=True,
             java_script_enabled=True,
         )
         page = context.new_page()
@@ -54,18 +57,13 @@ def analyze(url: str) -> dict:
 
         def handle_response(r):
             nonlocal response
-            # capture the first navigation response (primary document)
             if response is None and r.request.resource_type == "document":
                 response = r
 
         page.on("response", handle_response)
 
         try:
-            nav_response = page.goto(
-                url,
-                timeout=30_000,
-                wait_until="networkidle",
-            )
+            nav_response = page.goto(url, timeout=30_000, wait_until="networkidle")
             if nav_response:
                 result["status"] = nav_response.status
                 result["headers"] = dict(nav_response.headers)
@@ -73,12 +71,22 @@ def analyze(url: str) -> dict:
             result["final_url"] = page.url
             result["title"] = page.title()
 
+            # Capture rendered HTML body
+            try:
+                body_html = page.evaluate("() => document.documentElement.outerHTML")
+                if body_html:
+                    result["body"] = body_html[:_BODY_MAX_BYTES]
+            except Exception:
+                pass
+
         except PlaywrightTimeout:
             result["error"] = "timeout: page did not finish loading within 30s"
-            # still try to grab whatever loaded
             result["final_url"] = page.url
             try:
                 result["title"] = page.title()
+                body_html = page.evaluate("() => document.documentElement.outerHTML")
+                if body_html:
+                    result["body"] = body_html[:_BODY_MAX_BYTES]
             except Exception:
                 pass
 
@@ -86,7 +94,6 @@ def analyze(url: str) -> dict:
             result["error"] = str(exc)
             result["final_url"] = page.url
 
-        # always attempt a screenshot, even on error
         try:
             safe_name = (
                 url.replace("https://", "")

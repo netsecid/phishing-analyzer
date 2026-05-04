@@ -16,9 +16,10 @@
 
 ## Environment Variables
 
+### Required
+
 | Variable | Description |
 |----------|-------------|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key from console.anthropic.com |
 | `APP_PASSWORD` | Password users enter on the login page |
 | `SECRET_KEY` | Random string used to sign session cookies (never share this) |
 
@@ -26,6 +27,54 @@ Generate `SECRET_KEY`:
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
+
+### Model Configuration
+
+> **Where to change:** Edit these variables in your `.env` file (or export them before running the server).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MODEL_PROVIDER` | `anthropic` | AI provider: `anthropic`, `bedrock`, or `openai` |
+| `MODEL_NAME` | `claude-opus-4-7` | Model ID for the chosen provider |
+| `ANTHROPIC_API_KEY` | — | Required when `MODEL_PROVIDER=anthropic` |
+| `OPENAI_API_KEY` | — | Required when `MODEL_PROVIDER=openai` |
+| `AWS_BEDROCK_REGION` | `us-east-1` | AWS region, when `MODEL_PROVIDER=bedrock` |
+| `AWS_ACCESS_KEY_ID` | — | AWS credentials for Bedrock (or use IAM role) |
+| `AWS_SECRET_ACCESS_KEY` | — | AWS credentials for Bedrock |
+
+#### Provider examples
+
+```env
+# Default — Anthropic direct API
+MODEL_PROVIDER=anthropic
+MODEL_NAME=claude-opus-4-7
+ANTHROPIC_API_KEY=sk-ant-...
+
+# AWS Bedrock (Claude via AWS)
+MODEL_PROVIDER=bedrock
+MODEL_NAME=anthropic.claude-opus-4-5-20241022-v1:0
+AWS_BEDROCK_REGION=us-east-1
+# Credentials via ~/.aws/credentials or IAM role — no key vars needed
+
+# OpenAI
+MODEL_PROVIDER=openai
+MODEL_NAME=gpt-4o
+OPENAI_API_KEY=sk-...
+```
+
+> **Vision requirement:** The model must support image inputs. For OpenAI use `gpt-4o` or `gpt-4-turbo`. For Bedrock use a `claude-3`/`claude-opus` variant that supports vision.
+
+### External Intelligence APIs (optional)
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `URLSCAN_API_KEY` | urlscan.io | Increases rate limit; public results work without key |
+| `VIRUSTOTAL_API_KEY` | virustotal.com | Required for VT URL lookups |
+| `SHODAN_API_KEY` | shodan.io | Required for Shodan host lookups |
+| `CENSYS_API_ID` | censys.io | Required for Censys host lookups |
+| `CENSYS_API_SECRET` | censys.io | Required alongside `CENSYS_API_ID` |
+
+All intel fields are optional — the app works without any of them.
 
 ## Local Development
 
@@ -93,9 +142,21 @@ deactivate
 nano /opt/phishing-analyzer/.env
 ```
 ```
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+# Required
 APP_PASSWORD=your-login-password
 SECRET_KEY=your-generated-secret-key
+
+# Model provider (default: Anthropic)
+MODEL_PROVIDER=anthropic
+MODEL_NAME=claude-opus-4-7
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# Optional: external intel APIs
+# URLSCAN_API_KEY=...
+# VIRUSTOTAL_API_KEY=...
+# SHODAN_API_KEY=...
+# CENSYS_API_ID=...
+# CENSYS_API_SECRET=...
 ```
 ```bash
 chmod 600 /opt/phishing-analyzer/.env

@@ -13,11 +13,16 @@ from pydantic import BaseModel
 
 import ai_analysis
 import database
+import intel as intel_module
 import takedown
+
+from dotenv import load_dotenv
+_env_path = Path(".env") if Path(".env").exists() else Path("/opt/phishing-analyzer/.env")
+load_dotenv(_env_path)
 
 BASE_DIR = Path(__file__).parent
 
-for _var in ("ANTHROPIC_API_KEY", "APP_PASSWORD", "SECRET_KEY"):
+for _var in ("APP_PASSWORD", "SECRET_KEY"):
     if not os.environ.get(_var):
         print(f"ERROR: {_var} environment variable is not set.", file=sys.stderr)
         sys.exit(1)
@@ -50,7 +55,7 @@ def _require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-# ── Auth routes ──────────────────────────────────────────────────────────────
+# ── Auth routes ───────────────────────────────────────────────────────────────
 
 @app.get("/login")
 def login_page(request: Request):
@@ -82,7 +87,7 @@ def logout():
     return response
 
 
-# ── Protected page ───────────────────────────────────────────────────────────
+# ── Protected page ────────────────────────────────────────────────────────────
 
 @app.get("/")
 def index(request: Request):
@@ -91,7 +96,7 @@ def index(request: Request):
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 
-# ── API routes (return 401 JSON when unauthenticated) ────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 class AnalyzeRequest(BaseModel):
     url: str
@@ -107,6 +112,8 @@ def _enrich(case: dict) -> dict:
     case["screenshot_url"] = _screenshot_url(case.get("screenshot_path"))
     return case
 
+
+# ── API routes ────────────────────────────────────────────────────────────────
 
 @app.post("/api/analyze", dependencies=[Depends(_require_auth)])
 async def analyze(req: AnalyzeRequest):
@@ -143,6 +150,7 @@ async def analyze(req: AnalyzeRequest):
         status_code=data.get("status"),
         screenshot_path=data.get("screenshot"),
         raw_headers=json.dumps(data.get("headers", {})),
+        response_body=data.get("body"),
     )
 
     case = database.get_case(case_id)
@@ -154,12 +162,37 @@ async def analyze(req: AnalyzeRequest):
         td = await asyncio.to_thread(takedown.generate_takedown_report, case, analysis)
         database.update_case_takedown(case_id, td)
 
+    # Gather external intel asynchronously (non-blocking on failure)
+    try:
+        updated_case = database.get_case(case_id)
+        intel = await asyncio.to_thread(intel_module.gather_intel, updated_case, analysis)
+        database.update_case_intel(case_id, intel)
+    except Exception:
+        pass
+
     return _enrich(database.get_case(case_id))
 
 
+@app.get("/api/stats", dependencies=[Depends(_require_auth)])
+def get_stats():
+    return database.get_stats()
+
+
 @app.get("/api/cases", dependencies=[Depends(_require_auth)])
-def list_cases():
+def list_cases(search: str | None = None):
+    if search:
+        return [_enrich(c) for c in database.search_cases(search)]
     return [_enrich(c) for c in database.get_all_cases()]
+
+
+@app.get("/api/cases/check", dependencies=[Depends(_require_auth)])
+def check_duplicate(url: str):
+    """Returns existing cases that match the given URL's domain."""
+    from urllib.parse import urlparse
+    netloc = urlparse(url).netloc
+    domain = netloc.split(":")[0] if netloc else url
+    matches = database.find_cases_by_domain(domain)
+    return {"domain": domain, "existing_cases": [_enrich(c) for c in matches]}
 
 
 @app.get("/api/cases/{case_id}", dependencies=[Depends(_require_auth)])
@@ -184,6 +217,22 @@ async def regenerate_takedown(case_id: int):
     td = await asyncio.to_thread(takedown.generate_takedown_report, case, ai_result)
     database.update_case_takedown(case_id, td)
     return td
+
+
+@app.post("/api/cases/{case_id}/intel", dependencies=[Depends(_require_auth)])
+async def refresh_intel(case_id: int):
+    case = database.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    ai_result = {
+        "verdict": case.get("ai_verdict"),
+        "brand_impersonated": case.get("ai_brand_impersonated"),
+        "risk_indicators": case.get("ai_risk_indicators") or [],
+        "summary": case.get("ai_summary"),
+    }
+    intel = await asyncio.to_thread(intel_module.gather_intel, case, ai_result)
+    database.update_case_intel(case_id, intel)
+    return intel
 
 
 @app.get("/screenshots/{filename}", dependencies=[Depends(_require_auth)])
