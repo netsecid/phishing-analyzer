@@ -61,6 +61,8 @@ tmp/
 .temp/
 temp_files/
 test_data/
+screenshots/
+screenshots/*.png
 
 # Node modules (if you have frontend build tools)
 node_modules/
