@@ -26,9 +26,9 @@ _FALLBACK = {
 }
 
 # ── Provider config ───────────────────────────────────────────────────────────
-# MODEL_PROVIDER: "anthropic" | "bedrock" | "openai"
+# MODEL_PROVIDER: "anthropic" | "bedrock" | "openai" | "openrouter"
 # MODEL_NAME:     e.g. "claude-opus-4-7", "anthropic.claude-opus-4-5-20241022-v1:0",
-#                 "gpt-4o", "gpt-4-turbo"
+#                 "gpt-4o", "google/gemini-pro-vision", "meta-llama/llama-3.2-90b-vision-instruct"
 # See README.md → "Model Configuration" for full details.
 _PROVIDER = os.getenv("MODEL_PROVIDER", "anthropic").lower()
 _MODEL = os.getenv("MODEL_NAME", "claude-opus-4-7")
@@ -133,6 +133,34 @@ def _analyze_openai(case: dict, image_b64: str) -> dict:
     return _parse_response(raw)
 
 
+def _analyze_openrouter(case: dict, image_b64: str) -> dict:
+    import openai
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        return _FALLBACK
+    client = openai.OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={
+            "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "https://github.com/netsecid/phishing-analyzer"),
+            "X-Title": os.getenv("OPENROUTER_SITE_NAME", "Phishing Analyzer"),
+        },
+    )
+    response = client.chat.completions.create(
+        model=_MODEL,
+        max_tokens=1024,
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+                {"type": "text", "text": _build_user_prompt(case)},
+            ]},
+        ],
+    )
+    raw = response.choices[0].message.content or ""
+    return _parse_response(raw)
+
+
 def analyze_with_claude(case: dict, screenshot_path: str) -> dict:
     """Return an AI phishing assessment. Provider selected via MODEL_PROVIDER env var."""
     try:
@@ -146,6 +174,8 @@ def analyze_with_claude(case: dict, screenshot_path: str) -> dict:
             return _analyze_bedrock(case, image_b64)
         elif _PROVIDER == "openai":
             return _analyze_openai(case, image_b64)
+        elif _PROVIDER == "openrouter":
+            return _analyze_openrouter(case, image_b64)
         else:
             return _analyze_anthropic(case, image_b64)
     except Exception:

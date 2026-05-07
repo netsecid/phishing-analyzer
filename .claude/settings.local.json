@@ -7,7 +7,10 @@
       "Bash(xargs grep *)",
       "Bash(awk '{print $9, \"\\(\" $5 \"\\)\"}')",
       "Bash(xargs ls *)",
-      "Bash(python -c \"import ast, sys; files = ['main.py','database.py','ai_analysis.py','analyze.py','intel.py']; [print\\(f'{f}: OK'\\) or None for f in files if ast.parse\\(open\\(f\\).read\\(\\)\\)]\")"
+      "Bash(python -c \"import ast, sys; files = ['main.py','database.py','ai_analysis.py','analyze.py','intel.py']; [print\\(f'{f}: OK'\\) or None for f in files if ast.parse\\(open\\(f\\).read\\(\\)\\)]\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iyenk\\\\VSCode\\\\mancing-mania\\\\phishing-analyzer\" -Recurse)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }

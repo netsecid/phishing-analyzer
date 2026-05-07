@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phishing Analyzer</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -376,6 +377,13 @@ tbody td { padding: 0.65rem 0.9rem; font-size: 0.82rem; }
   color: var(--muted); transition: all 0.15s;
 }
 .btn-sm:hover { color: var(--text); border-color: var(--accent); }
+.btn-gsb {
+  background: var(--red-dim); border: 1px solid var(--red);
+  border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.82rem;
+  font-weight: 600; color: var(--red); transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.btn-gsb:hover { background: var(--red); color: #fff; }
 
 /* ── Intel ─────────────────────────────────────────────────────── */
 .intel-source {
@@ -1021,8 +1029,9 @@ function renderTakedown(c) {
         <button class="btn-copy" onclick="copyText(this, ${JSON.stringify(td.email_body || '')})">Copy</button>
       </div>
     </div>
-    <div style="margin-top:0.75rem">
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
       <button class="btn-sm" onclick="regenTakedown()">↻ Regenerate</button>
+      ${c.ai_verdict === 'phishing' ? `<button class="btn-gsb" onclick="reportGSB()">🛡 Report to Google Safe Browsing</button>` : ''}
     </div>
   `;
 }
@@ -1085,6 +1094,14 @@ async function regenTakedown() {
     renderTakedown(currentCase);
     toast('Takedown report updated', 'success');
   } catch { toast('Failed to regenerate takedown', 'error'); }
+}
+
+function reportGSB() {
+  if (!currentCase) return;
+  const url = currentCase.final_url || currentCase.url;
+  const reportUrl = 'https://safebrowsing.google.com/safebrowsing/report_phish/?url=' + encodeURIComponent(url);
+  window.open(reportUrl, '_blank', 'noopener,noreferrer');
+  toast('Opened Google Safe Browsing report page', 'info');
 }
 
 async function refreshIntel() {

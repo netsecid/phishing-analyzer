@@ -34,13 +34,25 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL_PROVIDER` | `anthropic` | AI provider: `anthropic`, `bedrock`, or `openai` |
+| `MODEL_PROVIDER` | `anthropic` | AI provider: `anthropic`, `bedrock`, `openai`, or `openrouter` |
 | `MODEL_NAME` | `claude-opus-4-7` | Model ID for the chosen provider |
 | `ANTHROPIC_API_KEY` | — | Required when `MODEL_PROVIDER=anthropic` |
 | `OPENAI_API_KEY` | — | Required when `MODEL_PROVIDER=openai` |
+| `OPENROUTER_API_KEY` | — | Required when `MODEL_PROVIDER=openrouter` |
+| `OPENROUTER_SITE_URL` | — | Optional: your site URL sent in OpenRouter headers |
+| `OPENROUTER_SITE_NAME` | — | Optional: your app name sent in OpenRouter headers |
 | `AWS_BEDROCK_REGION` | `us-east-1` | AWS region, when `MODEL_PROVIDER=bedrock` |
 | `AWS_ACCESS_KEY_ID` | — | AWS credentials for Bedrock (or use IAM role) |
 | `AWS_SECRET_ACCESS_KEY` | — | AWS credentials for Bedrock |
+
+#### Supported providers
+
+| Provider | `MODEL_PROVIDER` value | Key variable | Notes |
+|----------|----------------------|--------------|-------|
+| Anthropic (direct) | `anthropic` | `ANTHROPIC_API_KEY` | Best quality; uses prompt caching |
+| AWS Bedrock | `bedrock` | IAM / `AWS_*` vars | Claude via your AWS account |
+| OpenAI | `openai` | `OPENAI_API_KEY` | GPT-4o / GPT-4 Turbo |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | 200+ models, some free-tier; see below |
 
 #### Provider examples
 
@@ -60,9 +72,25 @@ AWS_BEDROCK_REGION=us-east-1
 MODEL_PROVIDER=openai
 MODEL_NAME=gpt-4o
 OPENAI_API_KEY=sk-...
+
+# OpenRouter — routes to 200+ models through one API key
+# Get a free key at https://openrouter.ai
+MODEL_PROVIDER=openrouter
+MODEL_NAME=google/gemini-2.0-flash-exp:free
+OPENROUTER_API_KEY=sk-or-...
+# Other vision-capable models on OpenRouter:
+#   anthropic/claude-opus-4              (paid)
+#   openai/gpt-4o                        (paid)
+#   meta-llama/llama-3.2-90b-vision-instruct (paid, check free tier)
+#   google/gemini-2.0-flash-exp:free     (free, rate-limited)
+#   mistralai/pixtral-large-2411         (paid)
 ```
 
-> **Vision requirement:** The model must support image inputs. For OpenAI use `gpt-4o` or `gpt-4-turbo`. For Bedrock use a `claude-3`/`claude-opus` variant that supports vision.
+> **Vision requirement:** The model must support image inputs. For OpenAI use `gpt-4o` or `gpt-4-turbo`. For Bedrock use a `claude-3`/`claude-opus` variant that supports vision. For OpenRouter, look for models tagged with "multimodal" or "vision" in the model list at openrouter.ai/models — free-tier models may have lower rate limits and quality than paid options.
+
+#### Corporate / enterprise deployment notice
+
+> **If you are deploying this tool on a corporate or organizational network, please consult with your security leadership, legal, and compliance teams before selecting an AI provider.** Different providers have different data retention, privacy, and data processing policies — screenshots of suspected phishing pages may contain sensitive information (brand assets, victim credentials, internal URLs). Anthropic and AWS Bedrock offer enterprise agreements with stronger data handling guarantees. Free-tier providers (e.g., some OpenRouter models) may log or use your prompts for training. When in doubt, use the provider approved by your organization's security policy.
 
 ### External Intelligence APIs (optional)
 
