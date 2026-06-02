@@ -4,6 +4,7 @@ intel.py — External threat intelligence lookups.
 Supported sources: URLScan.io, VirusTotal, Shodan, Censys.
 API keys are read from environment variables (see README → External Intelligence).
 """
+from __future__ import annotations
 
 import os
 import socket
