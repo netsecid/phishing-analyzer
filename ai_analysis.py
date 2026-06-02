@@ -114,6 +114,10 @@ def _build_user_prompt(case: dict, intel_summary: Optional[str] = None) -> str:
     return prompt
 
 
+_VALID_VERDICTS = {"phishing", "suspicious", "legitimate", "inconclusive"}
+_VALID_ACTIONS = {"takedown", "monitor", "dismiss"}
+
+
 def _parse_response(raw: str) -> dict:
     raw = raw.strip()
     if raw.startswith("```"):
@@ -123,6 +127,10 @@ def _parse_response(raw: str) -> dict:
     required = {"verdict", "confidence", "brand_impersonated", "risk_indicators", "summary", "recommended_action"}
     if not required.issubset(result):
         return _FALLBACK
+    if result.get("verdict") not in _VALID_VERDICTS:
+        result["verdict"] = "inconclusive"
+    if result.get("recommended_action") not in _VALID_ACTIONS:
+        result["recommended_action"] = "monitor"
     return result
 
 

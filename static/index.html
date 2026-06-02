@@ -1133,7 +1133,7 @@ function renderHunt(intel) {
       <div class="pivot-title">${esc(p.title)}</div>
       <div class="pivot-desc">${esc(p.description)}</div>
       <div class="pivot-links">
-        ${(p.queries || []).map((q, i) => `<a class="pivot-link" href="${q}" target="_blank" rel="noopener">Open ${i + 1}</a>`).join('')}
+        ${(p.queries || []).map((q, i) => `<a class="pivot-link" href="${esc(q)}" target="_blank" rel="noopener">Open ${i + 1}</a>`).join('')}
       </div>
     </div>`).join('');
 }
@@ -1288,13 +1288,13 @@ function extractDomain(url) {
 function verdictBadge(v) {
   if (!v) return '<span class="badge inconclusive dot">Unknown</span>';
   const labels = { phishing: '🎣 Phishing', suspicious: '⚠ Suspicious', legitimate: '✓ Legitimate', inconclusive: '? Inconclusive' };
-  return `<span class="badge ${v} dot">${labels[v] || v}</span>`;
+  return `<span class="badge ${esc(v)} dot">${labels[v] || esc(v)}</span>`;
 }
 
 function actionBadge(a) {
   if (!a) return '—';
   const map = { takedown: '<span class="badge phishing">Takedown</span>', monitor: '<span class="badge suspicious">Monitor</span>', dismiss: '<span class="badge legitimate">Dismiss</span>' };
-  return map[a] || a;
+  return map[a] || esc(a);
 }
 
 function statusBadge(code) {
