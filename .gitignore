@@ -1,86 +1,58 @@
-# File: C:\Users\iyenk\VSCode\mancing-mania\phishing-analyzer\.gitignore
-
-# Python
+# ── Python ────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
+*.egg
+*.egg-info/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
+dist/
+build/
 wheels/
 pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual environments
+# ── Virtual environments ───────────────────────────────────────────
 venv/
-ENV/
+.venv/
 env/
-.venv
+ENV/
 
-# IDE
+# ── Environment / secrets (NEVER commit) ──────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── App data (local only) ─────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+screenshots/
+
+# ── Claude Code local config ───────────────────────────────────────
+.claude/
+CLAUDE.md
+
+# ── AI workflow artifacts ──────────────────────────────────────────
+docs/superpowers/
+
+# ── IDE ───────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# ── OS ────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
 
-# Environment variables (NEVER commit this!)
-.env
-.env.local
-.env.*.local
-
-# Database files (local testing)
-*.db
-*.sqlite
-*.sqlite3
-app.db
-
-# Test/dummy files (DELETE THESE LOCALLY)
-test_*.py
-*_test.py
-dummy_*.py
-*_dummy.py
-demo_*.py
-*_demo.py
-temp/
-tmp/
-.temp/
-temp_files/
-test_data/
-screenshots/
-screenshots/*.png
-
-# Node modules (if you have frontend build tools)
-node_modules/
-package-lock.json
-yarn.lock
-
-# Build outputs
-dist/
-build/
-
-# Cache
+# ── Logs / cache ──────────────────────────────────────────────────
+*.log
+logs/
 .cache/
 *.cache
 
-# OS specific
-Thumbs.db
-.DS_Store
-
-# Logs
-*.log
-logs/
+# ── Node (if frontend tooling is ever added) ──────────────────────
+node_modules/
+package-lock.json
+yarn.lock
