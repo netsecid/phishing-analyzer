@@ -441,6 +441,11 @@ tbody td { padding: 0.65rem 0.9rem; font-size: 0.82rem; }
   animation: spin 0.7s linear infinite; display: inline-block;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.stage-row {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; color: var(--muted);
+}
+.stage-row span:first-child { flex-shrink: 0; }
 
 /* ── Toast ─────────────────────────────────────────────────────── */
 .toast-container {
@@ -762,17 +767,10 @@ async function startScan() {
   const btn = document.getElementById('scanBtn');
   const statusEl = document.getElementById('scanStatus');
   const progressBar = document.getElementById('progressBar');
+
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Analyzing…';
-  statusEl.textContent = 'Launching headless browser…';
-  statusEl.classList.add('visible');
   progressBar.style.display = 'block';
-
-  const steps = ['Capturing mobile screenshot…', 'Running AI vision analysis…', 'Gathering threat intelligence…', 'Generating report…'];
-  let stepIdx = 0;
-  const stepTimer = setInterval(() => {
-    if (stepIdx < steps.length) statusEl.textContent = steps[stepIdx++];
-  }, 15000);
 
   try {
     const res = await fetch('/api/analyze', {
@@ -780,26 +778,99 @@ async function startScan() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
     });
-    clearInterval(stepTimer);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
-    const c = await res.json();
+    const { case_id } = await res.json();
     input.value = '';
     document.getElementById('dupWarning').classList.remove('visible');
-    toast(`Analysis complete: ${c.ai_verdict || 'inconclusive'}`, c.ai_verdict === 'phishing' ? 'error' : c.ai_verdict === 'legitimate' ? 'success' : 'info');
-    showDetail(c);
+    showStageProgress(statusEl);
+    await pollUntilComplete(case_id, statusEl);
   } catch (e) {
-    clearInterval(stepTimer);
     toast(`Scan failed: ${e.message}`, 'error');
     statusEl.textContent = `Error: ${e.message}`;
+    statusEl.classList.add('visible');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<span>🔍</span> Analyze';
     progressBar.style.display = 'none';
-    setTimeout(() => statusEl.classList.remove('visible'), 3000);
+    setTimeout(() => {
+      statusEl.classList.remove('visible');
+      statusEl.innerHTML = '';
+    }, 4000);
   }
+}
+
+function showStageProgress(statusEl) {
+  statusEl.innerHTML = `
+    <div id="stageList" style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.2rem">
+      <div id="stage-intel" class="stage-row">
+        <span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>
+        <span>Querying 10 threat intel sources…</span>
+      </div>
+      <div id="stage-browser" class="stage-row" style="opacity:0.5">
+        <span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>
+        <span>Capturing mobile screenshot…</span>
+      </div>
+      <div id="stage-ai" class="stage-row" style="opacity:0.5">
+        <span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>
+        <span>AI analysis pending…</span>
+      </div>
+    </div>`;
+  statusEl.classList.add('visible');
+}
+
+function markStageDone(stageId, label) {
+  const el = document.getElementById(stageId);
+  if (el) {
+    el.style.opacity = '1';
+    el.innerHTML = `<span style="color:var(--green);font-weight:600">✓</span> <span>${label}</span>`;
+  }
+}
+
+async function pollUntilComplete(case_id, statusEl) {
+  let intelShown = false;
+  let aiShown = false;
+
+  return new Promise((resolve) => {
+    const interval = setInterval(async () => {
+      try {
+        const c = await fetch(`/api/cases/${case_id}`).then(r => r.json());
+
+        if (c.intel_data && !intelShown) {
+          intelShown = true;
+          markStageDone('stage-intel', '10 intel sources queried');
+          const browserStage = document.getElementById('stage-browser');
+          if (browserStage) browserStage.style.opacity = '1';
+        }
+
+        if (c.ai_verdict && !aiShown) {
+          aiShown = true;
+          markStageDone('stage-browser', 'Screenshot captured');
+          markStageDone('stage-ai', `AI verdict: ${c.ai_verdict}`);
+        }
+
+        if (c.status === 'complete' || c.status === 'failed') {
+          clearInterval(interval);
+          if (c.status === 'failed') {
+            toast('Analysis failed — partial results may be available', 'error');
+          } else {
+            toast(
+              `Analysis complete: ${c.ai_verdict || 'inconclusive'}`,
+              c.ai_verdict === 'phishing' ? 'error' : c.ai_verdict === 'legitimate' ? 'success' : 'info'
+            );
+          }
+          showDetail(c);
+          loadStats();
+          loadCases();
+          resolve();
+        }
+      } catch (e) {
+        // network hiccup — keep polling
+      }
+    }, 2500);
+  });
 }
 
 // ── Detail render ────────────────────────────────────────────────
@@ -957,16 +1028,93 @@ function renderIntel(intel) {
     `;
   });
 
+  // Google Safe Browsing
+  html += renderIntelSource('Google Safe Browsing', '🛡', intel.gsb, (d) => {
+    if (d.error && !d.configured) return `<div class="intel-not-configured">GOOGLE_SAFE_BROWSING_API_KEY not configured.</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (d.is_listed) {
+      return `<div class="intel-key-val"><span class="intel-key">Status</span><span class="intel-val"><span class="badge phishing dot">LISTED</span></span></div>` +
+        `<div class="intel-key-val"><span class="intel-key">Threat types</span><span class="intel-val">${(d.threat_types||[]).map(t => `<span class="tag" style="color:var(--red)">${esc(t)}</span>`).join(' ')}</span></div>`;
+    }
+    return `<div class="intel-key-val"><span class="intel-key">Status</span><span class="intel-val"><span class="badge legitimate dot">Clean</span></span></div>`;
+  });
+
+  // OTX AlienVault
+  html += renderIntelSource('OTX AlienVault', '👁', intel.otx, (d) => {
+    if (!d.configured) return `<div class="intel-not-configured">OTX_API_KEY not configured.</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    return `
+      <div class="intel-key-val"><span class="intel-key">Threat pulses</span><span class="intel-val" style="color:${d.domain_pulses>0?'var(--red)':'var(--green)'}">${d.domain_pulses}</span></div>
+      <div class="intel-key-val"><span class="intel-key">Reputation</span><span class="intel-val">${d.reputation}</span></div>
+      ${d.tags && d.tags.length ? `<div class="intel-key-val"><span class="intel-key">Tags</span><span class="intel-val">${d.tags.slice(0,8).map(t=>`<span class="tag">${esc(t)}</span>`).join(' ')}</span></div>` : ''}
+      ${d.malware_families && d.malware_families.length ? `<div class="intel-key-val"><span class="intel-key">Malware</span><span class="intel-val">${d.malware_families.map(f=>`<span class="tag" style="color:var(--red)">${esc(f)}</span>`).join(' ')}</span></div>` : ''}
+    `;
+  });
+
+  // AbuseIPDB
+  html += renderIntelSource('AbuseIPDB', '🚨', intel.abuseipdb, (d) => {
+    if (!d.configured) return `<div class="intel-not-configured">ABUSEIPDB_API_KEY not configured.</div>`;
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    const score = d.abuse_score ?? 0;
+    const scoreColor = score >= 50 ? 'var(--red)' : score >= 20 ? 'var(--orange)' : 'var(--green)';
+    return `
+      <div class="intel-key-val"><span class="intel-key">Abuse score</span><span class="intel-val" style="font-weight:700;color:${scoreColor}">${score}/100</span></div>
+      <div class="intel-key-val"><span class="intel-key">Reports</span><span class="intel-val">${d.total_reports}</span></div>
+      ${d.isp ? `<div class="intel-key-val"><span class="intel-key">ISP</span><span class="intel-val">${esc(d.isp)}</span></div>` : ''}
+      ${d.usage_type ? `<div class="intel-key-val"><span class="intel-key">Usage type</span><span class="intel-val">${esc(d.usage_type)}</span></div>` : ''}
+      ${d.country ? `<div class="intel-key-val"><span class="intel-key">Country</span><span class="intel-val">${esc(d.country)}</span></div>` : ''}
+    `;
+  });
+
+  // crt.sh
+  html += renderIntelSource('crt.sh (Cert Transparency)', '📜', intel.crtsh, (d) => {
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.cert_count) return `<div class="intel-not-configured">No certificates found.</div>`;
+    return `
+      <div class="intel-key-val"><span class="intel-key">Total certs</span><span class="intel-val">${d.cert_count}</span></div>
+      ${d.earliest_cert_date ? `<div class="intel-key-val"><span class="intel-key">First seen</span><span class="intel-val">${esc(d.earliest_cert_date)}</span></div>` : ''}
+      ${d.latest_cert_date ? `<div class="intel-key-val"><span class="intel-key">Latest cert</span><span class="intel-val">${esc(d.latest_cert_date)}</span></div>` : ''}
+      ${d.wildcard_certs ? `<div class="intel-key-val"><span class="intel-key">Wildcard</span><span class="intel-val"><span class="badge suspicious dot">Detected</span></span></div>` : ''}
+    `;
+  });
+
+  // URLhaus
+  html += renderIntelSource('URLhaus (Abuse.ch)', '☣', intel.urlhaus, (d) => {
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.url_listed && !d.host_listed) return `<div class="intel-key-val"><span class="intel-key">Status</span><span class="intel-val"><span class="badge legitimate dot">Not listed</span></span></div>`;
+    return `
+      ${d.url_listed ? `<div class="intel-key-val"><span class="intel-key">URL</span><span class="intel-val"><span class="badge phishing dot">Listed</span></span></div>` : ''}
+      ${d.host_listed ? `<div class="intel-key-val"><span class="intel-key">Host</span><span class="intel-val"><span class="badge phishing dot">Listed</span></span></div>` : ''}
+      ${d.threat ? `<div class="intel-key-val"><span class="intel-key">Threat type</span><span class="intel-val">${esc(d.threat)}</span></div>` : ''}
+      ${d.tags && d.tags.length ? `<div class="intel-key-val"><span class="intel-key">Tags</span><span class="intel-val">${d.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join(' ')}</span></div>` : ''}
+    `;
+  });
+
+  // PhishTank
+  html += renderIntelSource('PhishTank', '🪝', intel.phishtank, (d) => {
+    if (d.error) return `<div class="intel-error">Error: ${esc(d.error)}</div>`;
+    if (!d.in_database) return `<div class="intel-key-val"><span class="intel-key">Status</span><span class="intel-val"><span class="badge legitimate dot">Not in database</span></span></div>`;
+    return `
+      <div class="intel-key-val"><span class="intel-key">Status</span><span class="intel-val"><span class="badge ${d.verified ? 'phishing' : 'suspicious'} dot">${d.verified ? 'Verified phishing' : 'In database (unverified)'}</span></span></div>
+      ${d.phish_id ? `<div class="intel-key-val"><span class="intel-key">PhishTank ID</span><span class="intel-val mono">${esc(d.phish_id)}</span></div>` : ''}
+      ${d.verified_at ? `<div class="intel-key-val"><span class="intel-key">Verified at</span><span class="intel-val">${esc(String(d.verified_at).slice(0,10))}</span></div>` : ''}
+    `;
+  });
+
   el.innerHTML = html;
 }
 
 function renderIntelSource(title, icon, data, contentFn) {
   if (!data) return `<div class="intel-source"><div class="intel-source-header"><div class="intel-source-title">${icon} ${title}</div><span class="badge">N/A</span></div></div>`;
+  const hasConfigured = 'configured' in data;
+  const badge = hasConfigured
+    ? (data.configured ? '<span class="badge legitimate dot">Active</span>' : '<span class="badge inconclusive">Not configured</span>')
+    : (data.error ? '<span class="badge inconclusive">Error</span>' : '<span class="badge legitimate dot">Active</span>');
   return `
     <div class="intel-source">
       <div class="intel-source-header">
         <div class="intel-source-title">${icon} ${title}</div>
-        ${data.configured ? '<span class="badge legitimate dot">Active</span>' : '<span class="badge inconclusive">Not configured</span>'}
+        ${badge}
       </div>
       <div class="intel-source-body">${contentFn(data)}</div>
     </div>`;
