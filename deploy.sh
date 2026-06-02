@@ -51,6 +51,7 @@ source venv/bin/activate
 pip install --upgrade pip -q
 pip install -r requirements.txt -q
 playwright install chromium
+playwright install-deps chromium || sudo apt install -y libpango-1.0-0 libcairo2
 deactivate
 
 # ── Step 4: .env file ──
