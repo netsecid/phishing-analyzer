@@ -206,6 +206,251 @@ def query_censys(ip: str | None) -> dict:
     return result
 
 
+# ── Google Safe Browsing ─────────────────────────────────────────────────────
+
+def query_google_safe_browsing(url: str) -> dict:
+    api_key = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
+    result = {
+        "available": bool(url),
+        "configured": bool(api_key),
+        "threat_types": [],
+        "is_listed": False,
+        "error": None,
+    }
+    if not api_key:
+        result["error"] = "GOOGLE_SAFE_BROWSING_API_KEY not configured"
+        return result
+    try:
+        payload = {
+            "client": {"clientId": "phishing-analyzer", "clientVersion": "1.0"},
+            "threatInfo": {
+                "threatTypes": [
+                    "MALWARE",
+                    "SOCIAL_ENGINEERING",
+                    "UNWANTED_SOFTWARE",
+                    "POTENTIALLY_HARMFUL_APPLICATION",
+                ],
+                "platformTypes": ["ANY_PLATFORM"],
+                "threatEntryTypes": ["URL"],
+                "threatEntries": [{"url": url}],
+            },
+        }
+        r = requests.post(
+            f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}",
+            json=payload,
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        matches = r.json().get("matches", [])
+        result["threat_types"] = list({m.get("threatType") for m in matches if m.get("threatType")})
+        result["is_listed"] = bool(matches)
+    except Exception as e:
+        result["error"] = str(e)
+    return result
+
+
+# ── OTX (AlienVault) ──────────────────────────────────────────────────────────
+
+def query_otx(url: str) -> dict:
+    api_key = os.getenv("OTX_API_KEY", "")
+    domain = _extract_domain(url)
+    result = {
+        "available": bool(domain),
+        "configured": bool(api_key),
+        "domain_pulses": 0,
+        "reputation": 0,
+        "tags": [],
+        "malware_families": [],
+        "error": None,
+    }
+    if not api_key:
+        result["error"] = "OTX_API_KEY not configured"
+        return result
+    if not domain:
+        result["error"] = "Could not extract domain"
+        return result
+    try:
+        r = requests.get(
+            f"https://otx.alienvault.com/api/v1/indicators/domain/{domain}/general",
+            headers={"X-OTX-API-KEY": api_key},
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        data = r.json()
+        pulse_info = data.get("pulse_info", {})
+        result["domain_pulses"] = pulse_info.get("count", 0)
+        result["reputation"] = data.get("reputation", 0)
+        pulses = pulse_info.get("pulses", [])
+        result["tags"] = list({
+            tag for p in pulses for tag in p.get("tags", [])
+        })[:20]
+        result["malware_families"] = list({
+            mf.get("display_name", "")
+            for p in pulses
+            for mf in p.get("malware_families", [])
+            if mf.get("display_name")
+        })[:10]
+    except Exception as e:
+        result["error"] = str(e)
+    return result
+
+
+# ── AbuseIPDB ─────────────────────────────────────────────────────────────────
+
+def query_abuseipdb(ip: str | None) -> dict:
+    api_key = os.getenv("ABUSEIPDB_API_KEY", "")
+    result = {
+        "available": bool(ip),
+        "configured": bool(api_key),
+        "abuse_score": None,
+        "total_reports": 0,
+        "isp": None,
+        "usage_type": None,
+        "country": None,
+        "is_whitelisted": False,
+        "error": None,
+    }
+    if not ip:
+        result["error"] = "No IP address provided"
+        return result
+    if not api_key:
+        result["error"] = "ABUSEIPDB_API_KEY not configured"
+        return result
+    try:
+        r = requests.get(
+            "https://api.abuseipdb.com/api/v2/check",
+            params={"ipAddress": ip, "maxAgeInDays": 90},
+            headers={"Key": api_key, "Accept": "application/json"},
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        d = r.json().get("data", {})
+        result["abuse_score"] = d.get("abuseConfidenceScore")
+        result["total_reports"] = d.get("totalReports", 0)
+        result["isp"] = d.get("isp")
+        result["usage_type"] = d.get("usageType")
+        result["country"] = d.get("countryCode")
+        result["is_whitelisted"] = d.get("isWhitelisted", False)
+    except Exception as e:
+        result["error"] = str(e)
+    return result
+
+
+# ── crt.sh (Certificate Transparency) ─────────────────────────────────────────
+
+def query_crtsh(domain: str) -> dict:
+    result = {
+        "available": bool(domain),
+        "cert_count": 0,
+        "earliest_cert_date": None,
+        "latest_cert_date": None,
+        "wildcard_certs": False,
+        "error": None,
+    }
+    if not domain:
+        result["error"] = "No domain provided"
+        return result
+    try:
+        r = requests.get(
+            "https://crt.sh/",
+            params={"q": domain, "output": "json"},
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        certs = r.json()[:500]
+        if not certs:
+            return result
+        result["cert_count"] = len(certs)
+        dates = [c.get("not_before", "") for c in certs if c.get("not_before")]
+        if dates:
+            result["earliest_cert_date"] = min(dates)[:10]
+            result["latest_cert_date"] = max(dates)[:10]
+        result["wildcard_certs"] = any(
+            "*" in (c.get("common_name") or "") or "*" in (c.get("name_value") or "")
+            for c in certs
+        )
+    except Exception as e:
+        result["error"] = str(e)
+    return result
+
+
+# ── URLhaus ───────────────────────────────────────────────────────────────────
+
+def query_urlhaus(url: str, domain: str) -> dict:
+    result = {
+        "available": bool(url or domain),
+        "url_listed": False,
+        "host_listed": False,
+        "threat": None,
+        "tags": [],
+        "error": None,
+    }
+    try:
+        if url:
+            r = requests.post(
+                "https://urlhaus-api.abuse.ch/v1/url/",
+                data={"url": url},
+                timeout=_TIMEOUT,
+            )
+            r.raise_for_status()
+            d = r.json()
+            if d.get("query_status") == "is_listed":
+                result["url_listed"] = True
+                result["threat"] = d.get("threat")
+                result["tags"] = d.get("tags") or []
+        if domain:
+            r = requests.post(
+                "https://urlhaus-api.abuse.ch/v1/host/",
+                data={"host": domain},
+                timeout=_TIMEOUT,
+            )
+            r.raise_for_status()
+            d = r.json()
+            if d.get("query_status") == "is_listed":
+                result["host_listed"] = True
+                if not result["threat"] and d.get("urls"):
+                    result["threat"] = d["urls"][0].get("threat")
+    except Exception as e:
+        result["error"] = str(e)
+    return result
+
+
+# ── PhishTank ─────────────────────────────────────────────────────────────────
+
+def query_phishtank(url: str) -> dict:
+    api_key = os.getenv("PHISHTANK_API_KEY", "")
+    result = {
+        "available": bool(url),
+        "configured": True,
+        "in_database": False,
+        "verified": False,
+        "valid": False,
+        "verified_at": None,
+        "phish_id": None,
+        "error": None,
+    }
+    try:
+        data = {"url": url, "format": "json"}
+        if api_key:
+            data["app_key"] = api_key
+        r = requests.post(
+            "https://checkurl.phishtank.com/checkurl/",
+            data=data,
+            headers={"User-Agent": "phishing-analyzer/1.0"},
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        d = r.json().get("results", {})
+        result["in_database"] = d.get("in_database", False)
+        result["verified"] = d.get("verified", False)
+        result["valid"] = d.get("valid", False)
+        result["verified_at"] = d.get("verified_at")
+        result["phish_id"] = d.get("phish_id")
+    except Exception as e:
+        result["error"] = str(e)
+    return result
+
+
 # ── Hunt/Pivot suggestions ────────────────────────────────────────────────────
 
 def generate_pivot_suggestions(case: dict, ai_result: dict, intel: dict) -> list[dict]:
