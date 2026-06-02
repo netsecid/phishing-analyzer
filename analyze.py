@@ -66,7 +66,7 @@ def analyze(url: str) -> dict:
         page.on("response", handle_response)
 
         try:
-            nav_response = page.goto(url, timeout=30_000, wait_until="networkidle")
+            nav_response = page.goto(url, timeout=120_000, wait_until="networkidle")
             if nav_response:
                 result["status"] = nav_response.status
                 result["headers"] = dict(nav_response.headers)
@@ -83,7 +83,7 @@ def analyze(url: str) -> dict:
                 pass
 
         except PlaywrightTimeout:
-            result["error"] = "timeout: page did not finish loading within 30s"
+            result["error"] = "timeout: page did not finish loading within 120s"
             result["final_url"] = page.url
             try:
                 result["title"] = page.title()
