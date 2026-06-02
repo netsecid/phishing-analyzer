@@ -159,11 +159,8 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y \
   python3 python3-pip python3-venv \
   git nginx \
-  certbot python3-certbot-nginx \
-  libpango-1.0-0 libcairo2
+  certbot python3-certbot-nginx
 ```
-
-> **Note:** Do NOT run `playwright install-deps` on Ubuntu 24.04 — it fails due to renamed packages. The two packages above (`libpango-1.0-0 libcairo2`) are sufficient.
 
 ### 2. Clone and install
 
@@ -177,8 +174,15 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
+playwright install-deps chromium
 deactivate
 ```
+
+> **Ubuntu 24.04 note:** If `playwright install-deps chromium` fails with package-not-found errors, run this instead — some package names changed in 24.04:
+> ```bash
+> sudo apt install -y libpango-1.0-0 libcairo2
+> ```
+> Then verify Chromium works: `python analyze.py https://example.com --json`
 
 ### 3. Environment variables
 
