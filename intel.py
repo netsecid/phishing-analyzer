@@ -7,6 +7,7 @@ API keys are read from environment variables (see README → External Intelligen
 
 import os
 import socket
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
 import requests
@@ -590,18 +591,29 @@ def gather_intel(case: dict, ai_result: dict) -> dict:
     domain = _extract_domain(url)
     ip = _resolve_ip(domain) if domain else None
 
-    urlscan = query_urlscan(url)
-    vt = query_virustotal(url)
-    shodan = query_shodan(ip)
-    censys = query_censys(ip)
-
-    intel = {
-        "resolved_ip": ip,
-        "urlscan": urlscan,
-        "virustotal": vt,
-        "shodan": shodan,
-        "censys": censys,
+    _tasks = {
+        "urlscan":    lambda: query_urlscan(url),
+        "virustotal": lambda: query_virustotal(url),
+        "shodan":     lambda: query_shodan(ip),
+        "censys":     lambda: query_censys(ip),
+        "gsb":        lambda: query_google_safe_browsing(url),
+        "otx":        lambda: query_otx(url),
+        "abuseipdb":  lambda: query_abuseipdb(ip),
+        "crtsh":      lambda: query_crtsh(domain),
+        "urlhaus":    lambda: query_urlhaus(url, domain),
+        "phishtank":  lambda: query_phishtank(url),
     }
 
-    intel["pivot_suggestions"] = generate_pivot_suggestions(case, ai_result, intel)
-    return intel
+    results: dict = {}
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(fn): name for name, fn in _tasks.items()}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                results[name] = future.result()
+            except Exception as e:
+                results[name] = {"error": str(e)}
+
+    results["resolved_ip"] = ip
+    results["pivot_suggestions"] = generate_pivot_suggestions(case, ai_result, results)
+    return results
