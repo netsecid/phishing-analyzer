@@ -101,8 +101,12 @@ OPENROUTER_API_KEY=sk-or-...
 | `SHODAN_API_KEY` | shodan.io | Required for Shodan host lookups |
 | `CENSYS_API_ID` | censys.io | Required for Censys host lookups |
 | `CENSYS_API_SECRET` | censys.io | Required alongside `CENSYS_API_ID` |
+| `GOOGLE_SAFE_BROWSING_API_KEY` | console.cloud.google.com | Google Safe Browsing phishing/malware lookup. Free. Enable Safe Browsing API in Google Cloud Console. |
+| `OTX_API_KEY` | otx.alienvault.com | AlienVault OTX domain/IP threat pulses. Free. Register and find API key in profile settings. |
+| `ABUSEIPDB_API_KEY` | abuseipdb.com | IP abuse confidence score. Free tier: 1,000 checks/day. Find API key in account settings. |
+| `PHISHTANK_API_KEY` | phishtank.com | PhishTank community phishing DB. Optional—works without key (rate-limited). Register at phishtank.com/api_register.php. |
 
-All intel fields are optional — the app works without any of them.
+All intel fields are optional — the app works without any of them. Note: `crt.sh` (certificate transparency) and `URLhaus` require no credentials.
 
 ## Local Development
 
