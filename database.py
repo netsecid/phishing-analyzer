@@ -22,6 +22,7 @@ def _migrate_db():
         ("takedown_data", "TEXT"),
         ("response_body", "TEXT"),
         ("intel_data", "TEXT"),
+        ("status", "TEXT DEFAULT 'complete'"),
     ]
     with _conn() as conn:
         for col, col_type in new_columns:
@@ -29,6 +30,11 @@ def _migrate_db():
                 conn.execute(f"ALTER TABLE cases ADD COLUMN {col} {col_type}")
             except Exception:
                 pass
+        # back-fill any rows that pre-date this column
+        try:
+            conn.execute("UPDATE cases SET status = 'complete' WHERE status IS NULL")
+        except Exception:
+            pass
 
 
 def init_db():
@@ -57,6 +63,42 @@ def insert_case(*, url, timestamp, title, final_url, status_code, screenshot_pat
             (url, timestamp, title, final_url, status_code, screenshot_path, raw_headers, response_body),
         )
         return cur.lastrowid
+
+
+def insert_case_pending(*, url: str, timestamp: str) -> int:
+    with _conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO cases (url, timestamp, status) VALUES (?, ?, 'running')",
+            (url, timestamp),
+        )
+        return cur.lastrowid
+
+
+def update_case_browser_results(case_id: int, data: dict):
+    with _conn() as conn:
+        conn.execute(
+            """UPDATE cases SET
+               title = ?, final_url = ?, status_code = ?,
+               screenshot_path = ?, raw_headers = ?, response_body = ?
+               WHERE id = ?""",
+            (
+                data.get("title"),
+                data.get("final_url"),
+                data.get("status"),
+                data.get("screenshot"),
+                json.dumps(data.get("headers", {})),
+                data.get("body"),
+                case_id,
+            ),
+        )
+
+
+def update_case_status(case_id: int, status: str):
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE cases SET status = ? WHERE id = ?",
+            (status, case_id),
+        )
 
 
 def get_all_cases():
