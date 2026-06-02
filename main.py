@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -34,6 +35,7 @@ _SESSION_MAX_AGE = 8 * 3600
 
 app = FastAPI(title="Phishing Analyzer")
 database.init_db()
+_background_tasks: set[asyncio.Task] = set()
 
 
 def _make_session_token() -> str:
@@ -121,56 +123,90 @@ async def analyze(req: AnalyzeRequest):
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=422, detail="URL must start with http:// or https://")
 
-    def _run():
-        return subprocess.run(
-            [sys.executable, str(BASE_DIR / "analyze.py"), url, "--json"],
-            capture_output=True,
-            text=True,
-            timeout=90,
+    timestamp = datetime.now(timezone.utc).isoformat()
+    case_id = database.insert_case_pending(url=url, timestamp=timestamp)
+
+    task = asyncio.create_task(_run_analysis(case_id, url))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+    return {"case_id": case_id, "status": "running"}
+
+
+async def _run_analysis(case_id: int, url: str) -> None:
+    """Background pipeline: browser + intel in parallel, then AI, then takedown."""
+    try:
+        stub_case = database.get_case(case_id)
+
+        async def _do_browser() -> dict | None:
+            def _run():
+                return subprocess.run(
+                    [sys.executable, str(BASE_DIR / "analyze.py"), url, "--json"],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+            try:
+                proc = await asyncio.to_thread(_run)
+                data = json.loads(proc.stdout)
+                database.update_case_browser_results(case_id, data)
+                return data
+            except subprocess.TimeoutExpired:
+                return None
+            except (json.JSONDecodeError, Exception):
+                return None
+
+        async def _do_intel() -> dict:
+            intel = await asyncio.to_thread(intel_module.gather_intel, stub_case, {})
+            database.update_case_intel(case_id, intel)
+            return intel
+
+        # Run browser capture and intel in parallel; each writes to DB independently
+        browser_result, intel_result = await asyncio.gather(
+            _do_browser(),
+            _do_intel(),
+            return_exceptions=True,
         )
 
-    try:
-        proc = await asyncio.to_thread(_run)
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Analysis timed out after 90 s")
+        if isinstance(browser_result, Exception):
+            browser_result = None
+        if isinstance(intel_result, Exception):
+            intel_result = {}
 
-    try:
-        data = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=500,
-            detail=f"analyze.py produced no JSON. stderr: {proc.stderr[:500]}",
+        # Fetch the case after browser fields have been written
+        case = database.get_case(case_id)
+        screenshot_path = (browser_result or {}).get("screenshot") or ""
+
+        # AI analysis — uses screenshot (if captured) + intel context
+        analysis = await asyncio.to_thread(
+            ai_analysis.analyze_with_claude, case, screenshot_path, intel_result or {}
         )
+        database.update_case_ai_analysis(case_id, analysis)
 
-    case_id = database.insert_case(
-        url=data.get("url_input", url),
-        timestamp=data.get("timestamp", ""),
-        title=data.get("title"),
-        final_url=data.get("final_url"),
-        status_code=data.get("status"),
-        screenshot_path=data.get("screenshot"),
-        raw_headers=json.dumps(data.get("headers", {})),
-        response_body=data.get("body"),
-    )
+        # Takedown report for phishing/suspicious verdicts
+        if analysis.get("verdict") in ("phishing", "suspicious"):
+            td = await asyncio.to_thread(takedown.generate_takedown_report, case, analysis)
+            database.update_case_takedown(case_id, td)
 
-    case = database.get_case(case_id)
-    screenshot_path = data.get("screenshot") or ""
-    analysis = await asyncio.to_thread(ai_analysis.analyze_with_claude, case, screenshot_path)
-    database.update_case_ai_analysis(case_id, analysis)
+        # Regenerate pivot suggestions with full verdict + takedown context
+        try:
+            if intel_result:
+                final_case = database.get_case(case_id)
+                updated_intel = dict(intel_result)
+                updated_intel["pivot_suggestions"] = intel_module.generate_pivot_suggestions(
+                    final_case, analysis, updated_intel
+                )
+                database.update_case_intel(case_id, updated_intel)
+        except Exception:
+            pass
 
-    if analysis.get("verdict") in ("phishing", "suspicious"):
-        td = await asyncio.to_thread(takedown.generate_takedown_report, case, analysis)
-        database.update_case_takedown(case_id, td)
+        database.update_case_status(case_id, "complete")
 
-    # Gather external intel asynchronously (non-blocking on failure)
-    try:
-        updated_case = database.get_case(case_id)
-        intel = await asyncio.to_thread(intel_module.gather_intel, updated_case, analysis)
-        database.update_case_intel(case_id, intel)
     except Exception:
-        pass
-
-    return _enrich(database.get_case(case_id))
+        try:
+            database.update_case_status(case_id, "failed")
+        except Exception:
+            pass
 
 
 @app.get("/api/stats", dependencies=[Depends(_require_auth)])
