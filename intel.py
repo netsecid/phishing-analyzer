@@ -4,11 +4,10 @@ intel.py — External threat intelligence lookups.
 Supported sources: URLScan.io, VirusTotal, Shodan, Censys.
 API keys are read from environment variables (see README → External Intelligence).
 """
-from __future__ import annotations
-
 import os
 import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional
 from urllib.parse import urlparse
 
 import requests
@@ -21,7 +20,7 @@ def _extract_domain(url: str) -> str:
     return netloc.split(":")[0] if netloc else ""
 
 
-def _resolve_ip(domain: str) -> str | None:
+def _resolve_ip(domain: str) -> Optional[str]:
     try:
         return socket.gethostbyname(domain)
     except Exception:
@@ -113,7 +112,7 @@ def query_virustotal(url: str) -> dict:
 
 # ── Shodan ────────────────────────────────────────────────────────────────────
 
-def query_shodan(ip: str | None) -> dict:
+def query_shodan(ip: Optional[str]) -> dict:
     api_key = os.getenv("SHODAN_API_KEY", "")
     result = {"available": bool(ip), "configured": bool(api_key), "error": None, "data": None}
     if not ip:
@@ -164,7 +163,7 @@ def query_shodan(ip: str | None) -> dict:
 
 # ── Censys ────────────────────────────────────────────────────────────────────
 
-def query_censys(ip: str | None) -> dict:
+def query_censys(ip: Optional[str]) -> dict:
     api_id = os.getenv("CENSYS_API_ID", "")
     api_secret = os.getenv("CENSYS_API_SECRET", "")
     result = {"available": bool(ip), "configured": bool(api_id and api_secret), "error": None, "data": None}
@@ -299,7 +298,7 @@ def query_otx(url: str) -> dict:
 
 # ── AbuseIPDB ─────────────────────────────────────────────────────────────────
 
-def query_abuseipdb(ip: str | None) -> dict:
+def query_abuseipdb(ip: Optional[str]) -> dict:
     api_key = os.getenv("ABUSEIPDB_API_KEY", "")
     result = {
         "available": bool(ip),

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import os
@@ -7,6 +5,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -44,7 +43,7 @@ def _make_session_token() -> str:
     return _signer.dumps("authenticated")
 
 
-def _valid_session(token: str | None) -> bool:
+def _valid_session(token: Optional[str]) -> bool:
     if not token:
         return False
     try:
@@ -106,7 +105,7 @@ class AnalyzeRequest(BaseModel):
     url: str
 
 
-def _screenshot_url(path: str | None) -> str | None:
+def _screenshot_url(path: Optional[str]) -> Optional[str]:
     if not path:
         return None
     return f"/screenshots/{Path(path).name}"
@@ -140,7 +139,7 @@ async def _run_analysis(case_id: int, url: str) -> None:
     try:
         stub_case = database.get_case(case_id)
 
-        async def _do_browser() -> dict | None:
+        async def _do_browser() -> Optional[dict]:
             def _run():
                 return subprocess.run(
                     [sys.executable, str(BASE_DIR / "analyze.py"), url, "--json"],
@@ -217,7 +216,7 @@ def get_stats():
 
 
 @app.get("/api/cases", dependencies=[Depends(_require_auth)])
-def list_cases(search: str | None = None):
+def list_cases(search: Optional[str] = None):
     if search:
         return [_enrich(c) for c in database.search_cases(search)]
     return [_enrich(c) for c in database.get_all_cases()]
